@@ -29,10 +29,6 @@ fi
 echo "✅ Prerequisites check passed"
 echo ""
 
-# Build and push Docker image
-echo "🔨 Building and pushing Docker image..."
-./build-and-push.sh
-
 # Navigate to terraform directory
 cd terraform
 

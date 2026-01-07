@@ -1,4 +1,4 @@
-package org.springaicommunity.example;
+package org.springaicommunity.example.agent;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -24,13 +24,14 @@ public class ExtendedChatController {
 
 	public ExtendedChatController(ChatClient.Builder chatClientBuilder, ChatMemoryRepository memoryRepository) {
 		this.chatMemory = MessageWindowChatMemory.builder()
-			.chatMemoryRepository(memoryRepository)
-			.maxMessages(10)
-			.build();
+				.chatMemoryRepository(memoryRepository)
+				.maxMessages(10)
+				.build();
 		
 		this.chatClient = chatClientBuilder
-			.defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
-			.build();
+				.defaultTools(new DateTimeTools())
+				.defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+				.build();
 	}
 
 	@AgentCoreInvocation

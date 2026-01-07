@@ -9,7 +9,7 @@ REGION=$(aws configure get region || echo "us-east-1")
 
 # Generate unique suffix for ECR repository
 SUFFIX=$(openssl rand -hex 4)
-ECR_REPO_NAME="spring-ai-extended-${SUFFIX}"
+ECR_REPO_NAME="spring-ai-extended-chat-client-${SUFFIX}"
 IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${ECR_REPO_NAME}:latest"
 
 echo "📦 ECR Repository: ${ECR_REPO_NAME}"
@@ -29,14 +29,12 @@ fi
 echo "🔐 Logging into ECR..."
 aws ecr get-login-password --region "${REGION}" | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
 
-# Build the application
+# Build the application and Docker image with Spring Boot buildpacks
 echo "🔨 Building Spring Boot application..."
 mvn clean package -DskipTests -q
 
-# Build and tag Docker image
-echo "🐳 Building Docker image..."
-docker build --platform linux/arm64 -t "${ECR_REPO_NAME}" .
-docker tag "${ECR_REPO_NAME}:latest" "${IMAGE_URI}"
+echo "🐳 Building Docker image with Spring Boot buildpacks..."
+mvn spring-boot:build-image -Dspring-boot.build-image.imageName="${IMAGE_URI}" -Dspring-boot.build-image.builder.env.BP_ARCH=arm64 -q
 
 # Push image to ECR
 echo "📤 Pushing image to ECR..."

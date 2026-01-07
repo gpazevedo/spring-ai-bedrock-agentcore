@@ -22,16 +22,16 @@ data "aws_caller_identity" "current" {}
 locals {
   memory_name_clean = "extendedChatClientMemory"
   unique_memory_name = "${local.memory_name_clean}_${random_string.suffix.result}"
-  runtime_name = "spring_ai_extended_${random_string.suffix.result}"
+  runtime_name = "spring_ai_extended_chat_client_${random_string.suffix.result}"
   
   # Read image URI from build script output
   container_uri = fileexists("image-uri.txt") ? trimspace(file("image-uri.txt")) : var.container_uri
-  ecr_repo_name = fileexists("ecr-repo-name.txt") ? trimspace(file("ecr-repo-name.txt")) : "spring-ai-extended-default"
+  ecr_repo_name = fileexists("ecr-repo-name.txt") ? trimspace(file("ecr-repo-name.txt")) : "spring-ai-extended-chat-client-default"
 }
 
 # Cognito User Pool for OAuth authentication
 resource "aws_cognito_user_pool" "oauth_users" {
-  name = "spring-ai-extended-users-${random_string.suffix.result}"
+  name = "spring-ai-extended-chat-client-users-${random_string.suffix.result}"
 
   password_policy {
     minimum_length    = 8
@@ -51,7 +51,7 @@ resource "aws_cognito_user_pool" "oauth_users" {
 
 # Cognito User Pool Client
 resource "aws_cognito_user_pool_client" "oauth_client" {
-  name         = "spring-ai-extended-client-${random_string.suffix.result}"
+  name         = "spring-ai-extended-chat-client-${random_string.suffix.result}"
   user_pool_id = aws_cognito_user_pool.oauth_users.id
 
   generate_secret = false
@@ -64,7 +64,7 @@ resource "aws_cognito_user_pool_client" "oauth_client" {
 
 # IAM Role for AgentCore Runtime
 resource "aws_iam_role" "agentcore_runtime" {
-  name = "ExtendedChatClientRuntimeRole"
+  name = "ExtendedChatClientRuntimeRole-${random_string.suffix.result}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

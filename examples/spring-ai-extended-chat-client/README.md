@@ -40,17 +40,23 @@ Spring AI chat client deployable into Bedrock AgentCore and uses authentication 
 
 ### Deploy to AgentCore Runtime
 
-1. **Deploy the runtime:**
+1. **Build and push the Docker image:**
+   ```bash
+   ./build-and-push.sh
+   ```
+
+2. **Deploy the infrastructure:**
    ```bash
    ./deploy.sh
    ```
 
-2. **Test the deployment:**
+3. **Test the deployment:**
    ```bash
    ./test.sh
    ```
 
-The deployment script handles everything: building the app, creating the Docker image, pushing to ECR, and deploying to AgentCore Runtime with OAuth authentication.
+The build script handles: building the app, creating the Docker image, and pushing to ECR.
+The deploy script handles: creating AgentCore Runtime, Memory, and OAuth authentication.
 
 ### Manual Testing with OAuth
 

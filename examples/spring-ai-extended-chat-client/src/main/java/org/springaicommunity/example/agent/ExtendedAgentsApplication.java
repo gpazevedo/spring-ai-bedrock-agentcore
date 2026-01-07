@@ -1,13 +1,13 @@
-package org.springaicommunity.example;
+package org.springaicommunity.example.agent;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class AgentCoreExtendedApplication {
+public class ExtendedAgentsApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(AgentCoreExtendedApplication.class, args);
+		SpringApplication.run(ExtendedAgentsApplication.class, args);
 	}
 
 }
