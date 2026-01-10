@@ -80,15 +80,15 @@ public class AgentCoreInvocationsController implements AgentCoreInvocationsHandl
 	 */
 	private Object normalizeForSse(Object result) {
 		if (result instanceof Flux<?> flux) {
-			return flux.concatMap(this::splitOnNewlines);
+			return flux.flatMapIterable(this::splitOnNewlines);
 		}
 		return result;
 	}
 
-	private Flux<String> splitOnNewlines(Object item) {
-		String str = String.valueOf(item);
+	private List<String> splitOnNewlines(Object item) {
+		String str = item instanceof String s ? s : String.valueOf(item);
 		if (!str.contains("\n")) {
-			return Flux.just(str);
+			return List.of(str);
 		}
 		// Split on newlines, interleave empty strings as newline markers
 		String[] parts = str.split("\n", -1);
@@ -101,7 +101,7 @@ public class AgentCoreInvocationsController implements AgentCoreInvocationsHandl
 				result.add(parts[i]);
 			}
 		}
-		return Flux.fromIterable(result);
+		return result;
 	}
 
 }
