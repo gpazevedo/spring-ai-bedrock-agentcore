@@ -11,7 +11,7 @@ import software.amazon.awssdk.services.bedrockagentcore.BedrockAgentCoreClient;
 import software.amazon.awssdk.services.bedrockagentcore.model.*;
 
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -116,11 +116,9 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 	 * Create AssistantMessage with eventId in metadata for delta tracking.
 	 */
 	private AssistantMessage createAssistantMessage(PayloadType payload, String eventId) {
-		Map<String, Object> metadata = new HashMap<>();
-		metadata.put(EVENT_ID_METADATA_KEY, eventId);
 		return AssistantMessage.builder()
 			.content(payload.conversational().content().text())
-			.properties(metadata)
+			.properties((eventId != null) ? Map.of(EVENT_ID_METADATA_KEY, eventId) : Map.of())
 			.build();
 	}
 
@@ -128,13 +126,14 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 	 * Create UserMessage with eventId in metadata for delta tracking.
 	 */
 	private UserMessage createUserMessage(PayloadType payload, String eventId) {
-		Map<String, Object> metadata = new HashMap<>();
-		metadata.put(EVENT_ID_METADATA_KEY, eventId);
-		return UserMessage.builder().text(payload.conversational().content().text()).metadata(metadata).build();
+		return UserMessage.builder()
+			.text(payload.conversational().content().text())
+			.metadata((eventId != null) ? Map.of(EVENT_ID_METADATA_KEY, eventId) : Map.of())
+			.build();
 	}
 
 	private List<Event> fetchAllEvents(ActorAndSession actorAndSession) {
-		var allEvents = new java.util.ArrayList<Event>();
+		var allEvents = new ArrayList<Event>();
 		var nextToken = (String) null;
 		int requestPageSize = totalEventsLimit != null ? Math.min(pageSize, totalEventsLimit) : pageSize;
 
@@ -161,7 +160,8 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 				nextToken = listEventsResponse.nextToken();
 
 				if (totalEventsLimit != null && allEvents.size() >= totalEventsLimit) {
-					return allEvents.size() <= totalEventsLimit ? allEvents : allEvents.subList(0, totalEventsLimit);
+					allEvents = new ArrayList<>(allEvents.subList(0, totalEventsLimit));
+					break;
 				}
 			}
 			while (nextToken != null);
@@ -197,7 +197,7 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 		}
 
 		// Delta detection: filter to only new messages (no eventId in metadata)
-		List<Message> delta = messages.stream()
+		List<Message> delta = messages.stream()// .toList();
 			.filter(m -> m.getMetadata().get(EVENT_ID_METADATA_KEY) == null)
 			.toList();
 
@@ -213,30 +213,7 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 		try {
 			var actorAndSession = actorAndSession(conversationId);
 
-			var payloads = delta.stream().map(message -> {
-				Role role;
-
-				if (message instanceof AssistantMessage) {
-					role = Role.ASSISTANT;
-				}
-				else if (message instanceof UserMessage) {
-					role = Role.USER;
-				}
-				else {
-					if (ignoreUnknownRoles) {
-						logger.warn("Ignoring unknown message type: {}", message.getClass().getSimpleName());
-						return null;
-					}
-					else {
-						throw new IllegalStateException(
-								"Unsupported message type: " + message.getClass().getSimpleName());
-					}
-				}
-
-				var content = Content.builder().text(message.getText()).build();
-				var conversational = Conversational.builder().content(content).role(role).build();
-				return PayloadType.builder().conversational(conversational).build();
-			}).filter(Objects::nonNull).toList();
+			var payloads = delta.stream().map(this::buildPayloadType).filter(Objects::nonNull).toList();
 
 			if (payloads.isEmpty()) {
 				logger.debug("No valid payloads to save after filtering");
@@ -264,6 +241,30 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 			logger.error("Failed to save messages for conversation: {}", conversationId, e);
 			throw new AgentCoreMemoryException("Failed to save messages for conversation: " + conversationId, e);
 		}
+	}
+
+	private PayloadType buildPayloadType(Message message) {
+		Role role;
+
+		if (message instanceof AssistantMessage) {
+			role = Role.ASSISTANT;
+		}
+		else if (message instanceof UserMessage) {
+			role = Role.USER;
+		}
+		else {
+			if (ignoreUnknownRoles) {
+				logger.warn("Ignoring unknown message type: {}", message.getClass().getSimpleName());
+				return null;
+			}
+			else {
+				throw new IllegalStateException("Unsupported message type: " + message.getClass().getSimpleName());
+			}
+		}
+
+		var content = Content.builder().text(message.getText()).build();
+		var conversational = Conversational.builder().content(content).role(role).build();
+		return PayloadType.builder().conversational(conversational).build();
 	}
 
 	@Override

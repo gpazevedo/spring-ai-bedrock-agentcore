@@ -25,6 +25,8 @@ public class ChatController {
 		this.chatClient = chatClientBuilder
 			.defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
 			.build();
+
+		memoryRepository.deleteByConversationId(CONVERSATION_ID);
 	}
 
 	@PostMapping("/api/chat")
