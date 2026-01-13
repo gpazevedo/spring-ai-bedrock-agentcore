@@ -103,15 +103,15 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 	private ChatClientRequest enrichRequest(ChatClientRequest request) {
 		String userId = extractParam(request, USER_ID_PARAM);
 		if (userId == null || userId.isEmpty()) {
-			logger.debug("No user ID found, skipping {} enrichment", this.contextLabel);
-			return request;
+			throw new IllegalStateException("LTM advisor requires '" + USER_ID_PARAM + "' parameter. "
+					+ "Add .param(AgentCoreLongMemoryAdvisor.USER_ID_PARAM, userId) to your ChatClient call.");
 		}
 
 		if (this.mode == Mode.SUMMARY) {
 			String sessionId = extractParam(request, SESSION_ID_PARAM);
 			if (sessionId == null || sessionId.isEmpty()) {
-				logger.debug("No session ID found, skipping summary enrichment");
-				return request;
+				throw new IllegalStateException("SUMMARY mode requires '" + SESSION_ID_PARAM + "' parameter. "
+						+ "Add .param(AgentCoreLongMemoryAdvisor.SESSION_ID_PARAM, sessionId) to your ChatClient call.");
 			}
 			return enrichWithSummary(request, userId, sessionId);
 		}
