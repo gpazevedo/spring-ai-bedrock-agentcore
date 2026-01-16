@@ -68,21 +68,43 @@ agentcore:
 agentcore:
   memory:
     long-term:
+      enabled: true                              # Required: Enable LTM feature
       semantic:
-        strategy-id: ${SEMANTIC_STRATEGY_ID}
-        top-k: 3                               # Number of facts to retrieve
+        strategy-id: ${SEMANTIC_STRATEGY_ID}     # Enables strategy (omit to disable)
+        top-k: 3                                 # Default: 3
+        scope: ACTOR                             # Default: ACTOR
       user-preference:
-        strategy-id: ${USER_PREFERENCE_STRATEGY_ID}  # No top-k: lists all
+        strategy-id: ${USER_PREFERENCE_STRATEGY_ID}  # Enables strategy (no top-k: lists all)
+        scope: ACTOR                             # Default: ACTOR
       summary:
-        strategy-id: ${SUMMARY_STRATEGY_ID}
-        top-k: 3
+        strategy-id: ${SUMMARY_STRATEGY_ID}      # Enables strategy
+        top-k: 3                                 # Default: 3
+        scope: SESSION                           # Default: SESSION
       episodic:
-        strategy-id: ${EPISODIC_STRATEGY_ID}
-        episodes-top-k: 3
-        reflections-top-k: 2
+        strategy-id: ${EPISODIC_STRATEGY_ID}     # Enables strategy
+        reflections-strategy-id: ${REFLECTIONS_STRATEGY_ID}  # Optional: enables reflections
+        episodes-top-k: 3                        # Default: 3
+        reflections-top-k: 2                     # Default: 2
+        scope: ACTOR                             # Default: ACTOR
 ```
 
-Each strategy is optional - only configure the ones you need. Advisors are auto-created for configured strategies.
+#### Scope Options
+
+| Scope | Namespace Pattern | Use Case |
+|-------|-------------------|----------|
+| `ACTOR` | `/strategy/{memoryStrategyId}/actors/{actorId}` | Search across all sessions for the user |
+| `SESSION` | `/strategy/{memoryStrategyId}/actors/{actorId}/sessions/{sessionId}` | Search only current session |
+
+#### Defaults Summary
+
+| Strategy | top-k | scope |
+|----------|-------|-------|
+| semantic | 3 | ACTOR |
+| user-preference | n/a (lists all) | ACTOR |
+| summary | 3 | SESSION |
+| episodic | episodes: 3, reflections: 2 | ACTOR |
+
+Set `enabled: true` to activate LTM, then configure individual strategies. Each strategy is optional - only configure the ones you need. Advisors are auto-created for configured strategies. Set `enabled: false` to temporarily disable all LTM without removing strategy configuration.
 
 ## Conversation ID Format
 

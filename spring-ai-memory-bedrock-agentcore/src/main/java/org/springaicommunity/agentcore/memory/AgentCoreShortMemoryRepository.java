@@ -67,9 +67,6 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 		this.ignoreUnknownRoles = ignoreUnknownRoles;
 	}
 
-	record ActorAndSession(String actor, String session) {
-	}
-
 	@Override
 	public List<String> findConversationIds() {
 		throw new UnsupportedOperationException();
@@ -109,7 +106,8 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 		}
 		catch (SdkException e) {
 			logger.error("Failed to retrieve messages for conversation: {}", conversationId, e);
-			throw new AgentCoreMemoryException("Failed to retrieve messages for conversation: " + conversationId, e);
+			throw new AgentCoreMemoryException.RetrievalException(
+					"Failed to retrieve messages for conversation: " + conversationId, e);
 		}
 	}
 
@@ -133,7 +131,7 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 			.build();
 	}
 
-	private List<Event> fetchAllEvents(ActorAndSession actorAndSession) {
+	private List<Event> fetchAllEvents(AgentCoreMemoryConversationIdParser.ActorAndSession actorAndSession) {
 		var allEvents = new ArrayList<Event>();
 		var nextToken = (String) null;
 		int requestPageSize = totalEventsLimit != null ? Math.min(pageSize, totalEventsLimit) : pageSize;
@@ -170,7 +168,7 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 		catch (SdkException e) {
 			logger.error("Failed to fetch events for actor: {}, session: {}", actorAndSession.actor(),
 					actorAndSession.session(), e);
-			throw new AgentCoreMemoryException("Failed to fetch events", e);
+			throw new AgentCoreMemoryException.RetrievalException("Failed to fetch events", e);
 		}
 	}
 
@@ -238,7 +236,8 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 		}
 		catch (SdkException e) {
 			logger.error("Failed to save messages for conversation: {}", conversationId, e);
-			throw new AgentCoreMemoryException("Failed to save messages for conversation: " + conversationId, e);
+			throw new AgentCoreMemoryException.StorageException(
+					"Failed to save messages for conversation: " + conversationId, e);
 		}
 	}
 
@@ -295,16 +294,12 @@ public class AgentCoreShortMemoryRepository implements ChatMemoryRepository {
 		}
 		catch (SdkException e) {
 			logger.error("Failed to delete conversation: {}", conversationId, e);
-			throw new AgentCoreMemoryException("Failed to delete conversation: " + conversationId, e);
+			throw new AgentCoreMemoryException.StorageException("Failed to delete conversation: " + conversationId, e);
 		}
 	}
 
-	ActorAndSession actorAndSession(String conversationId) {
-		if (conversationId.contains(":")) {
-			var parts = conversationId.split(":");
-			return new ActorAndSession(parts[0], parts[1]);
-		}
-		return new ActorAndSession(conversationId, defaultSession);
+	AgentCoreMemoryConversationIdParser.ActorAndSession actorAndSession(String conversationId) {
+		return AgentCoreMemoryConversationIdParser.parse(conversationId, defaultSession);
 	}
 
 	private String validateMemoryId(String memoryId) {

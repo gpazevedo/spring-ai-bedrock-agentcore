@@ -10,7 +10,8 @@ public record AgentCoreShortMemoryRepositoryConfiguration(String memoryId, Integ
 			int pageSize, boolean ignoreUnknownRoles) {
 		this.memoryId = memoryId;
 		this.totalEventsLimit = totalEventsLimit;
-		this.defaultSession = defaultSession != null ? defaultSession : "default-session";
+		this.defaultSession = defaultSession != null ? defaultSession
+				: AgentCoreMemoryConversationIdParser.DEFAULT_SESSION;
 		this.pageSize = pageSize > 0 ? pageSize : 100;
 		this.ignoreUnknownRoles = ignoreUnknownRoles;
 	}

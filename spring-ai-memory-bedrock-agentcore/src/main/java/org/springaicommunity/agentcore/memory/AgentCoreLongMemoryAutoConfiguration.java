@@ -1,9 +1,9 @@
 package org.springaicommunity.agentcore.memory;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryAdvisor.Mode;
-import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryConfiguration.EpisodicConfig;
-import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryConfiguration.StrategyConfig;
-import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryConfiguration.UserPreferenceConfig;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -12,6 +12,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 
 import software.amazon.awssdk.services.bedrockagentcore.BedrockAgentCoreClient;
+import software.amazon.awssdk.services.bedrockagentcorecontrol.BedrockAgentCoreControlClient;
 
 /**
  * Auto-configuration for AgentCore Long-Term Memory.
@@ -20,52 +21,103 @@ import software.amazon.awssdk.services.bedrockagentcore.BedrockAgentCoreClient;
  */
 @AutoConfiguration(after = AgentCoreShortMemoryRepositoryAutoConfiguration.class)
 @EnableConfigurationProperties(AgentCoreLongMemoryConfiguration.class)
-@ConditionalOnBean(BedrockAgentCoreClient.class)
+@ConditionalOnBean({ BedrockAgentCoreClient.class, AgentCoreShortMemoryRepositoryConfiguration.class })
 public class AgentCoreLongMemoryAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	@ConditionalOnProperty(name = "agentcore.memory.long-term.semantic.strategy-id")
-	AgentCoreLongMemoryRepository agentCoreLongMemoryRepository(BedrockAgentCoreClient client,
-			AgentCoreShortMemoryRepositoryConfiguration shortMemoryConfig) {
-		return new AgentCoreLongMemoryRepository(client, shortMemoryConfig.memoryId());
+	@ConditionalOnProperty(name = "agentcore.memory.long-term.enabled", havingValue = "true")
+	BedrockAgentCoreControlClient bedrockAgentCoreControlClient() {
+		return BedrockAgentCoreControlClient.create();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	@ConditionalOnProperty(name = "agentcore.memory.long-term.enabled", havingValue = "true")
+	AgentCoreLongMemoryRetriever agentCoreLongMemoryRetriever(BedrockAgentCoreClient client,
+			AgentCoreShortMemoryRepositoryConfiguration shortMemoryConfig, BedrockAgentCoreControlClient controlClient,
+			AgentCoreLongMemoryConfiguration config) {
+		String memoryId = shortMemoryConfig.memoryId();
+
+		// Validate namespaces at startup to fail fast on misconfiguration
+		Map<String, AgentCoreLongMemoryScope> strategyConfigs = buildStrategyConfigs(config);
+		AgentCoreLongMemoryNamespaceValidator validator = new AgentCoreLongMemoryNamespaceValidator(controlClient);
+		validator.validateNamespaces(memoryId, strategyConfigs);
+
+		return new AgentCoreLongMemoryRetriever(client, memoryId);
+	}
+
+	private Map<String, AgentCoreLongMemoryScope> buildStrategyConfigs(AgentCoreLongMemoryConfiguration config) {
+		Map<String, AgentCoreLongMemoryScope> configs = new HashMap<>();
+		if (config.semantic() != null && config.semantic().isEnabled()) {
+			configs.put(config.semantic().strategyId(), config.semantic().scope());
+		}
+		if (config.userPreference() != null && config.userPreference().isEnabled()) {
+			configs.put(config.userPreference().strategyId(), config.userPreference().scope());
+		}
+		if (config.summary() != null && config.summary().isEnabled()) {
+			configs.put(config.summary().strategyId(), config.summary().scope());
+		}
+		if (config.episodic() != null && config.episodic().isEnabled()) {
+			configs.put(config.episodic().strategyId(), config.episodic().scope());
+			if (config.episodic().hasReflections()) {
+				configs.put(config.episodic().reflectionsStrategyId(), config.episodic().scope());
+			}
+		}
+		return configs;
 	}
 
 	@Bean
 	@ConditionalOnProperty(name = "agentcore.memory.long-term.semantic.strategy-id")
-	AgentCoreLongMemoryAdvisor semanticAdvisor(AgentCoreLongMemoryRepository repository,
+	AgentCoreLongMemoryAdvisor semanticAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryConfiguration config) {
-		StrategyConfig strategyConfig = config.semantic();
-		return new AgentCoreLongMemoryAdvisor(repository, strategyConfig.strategyId(),
-				"Known facts about the user (use naturally in conversation)", Mode.SEMANTIC, 100,
-				strategyConfig.topK());
+		AgentCoreLongMemorySemanticConfig semanticConfig = config.semantic();
+		return AgentCoreLongMemoryAdvisor.builder(retriever, Mode.SEMANTIC)
+			.strategyId(semanticConfig.strategyId())
+			.contextLabel("Known facts about the user (use naturally in conversation)")
+			.topK(semanticConfig.topK())
+			.scope(semanticConfig.scope())
+			.build();
 	}
 
 	@Bean
 	@ConditionalOnProperty(name = "agentcore.memory.long-term.user-preference.strategy-id")
-	AgentCoreLongMemoryAdvisor userPreferenceAdvisor(AgentCoreLongMemoryRepository repository,
+	AgentCoreLongMemoryAdvisor userPreferenceAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryConfiguration config) {
-		UserPreferenceConfig prefConfig = config.userPreference();
-		return new AgentCoreLongMemoryAdvisor(repository, prefConfig.strategyId(),
-				"User preferences (apply when relevant)", Mode.USER_PREFERENCE, 101);
+		AgentCoreLongMemoryUserPreferenceConfig prefConfig = config.userPreference();
+		return AgentCoreLongMemoryAdvisor.builder(retriever, Mode.USER_PREFERENCE)
+			.strategyId(prefConfig.strategyId())
+			.contextLabel("User preferences (apply when relevant)")
+			.scope(prefConfig.scope())
+			.build();
 	}
 
 	@Bean
 	@ConditionalOnProperty(name = "agentcore.memory.long-term.summary.strategy-id")
-	AgentCoreLongMemoryAdvisor summaryAdvisor(AgentCoreLongMemoryRepository repository,
+	AgentCoreLongMemoryAdvisor summaryAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryConfiguration config) {
-		StrategyConfig strategyConfig = config.summary();
-		return new AgentCoreLongMemoryAdvisor(repository, strategyConfig.strategyId(), "Conversation summaries",
-				Mode.SUMMARY, 102, strategyConfig.topK());
+		AgentCoreLongMemorySummaryConfig summaryConfig = config.summary();
+		return AgentCoreLongMemoryAdvisor.builder(retriever, Mode.SUMMARY)
+			.strategyId(summaryConfig.strategyId())
+			.contextLabel("Previous conversation summaries (use for continuity)")
+			.topK(summaryConfig.topK())
+			.scope(summaryConfig.scope())
+			.build();
 	}
 
 	@Bean
 	@ConditionalOnProperty(name = "agentcore.memory.long-term.episodic.strategy-id")
-	AgentCoreLongMemoryAdvisor episodicAdvisor(AgentCoreLongMemoryRepository repository,
+	AgentCoreLongMemoryAdvisor episodicAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryConfiguration config) {
-		EpisodicConfig episodicConfig = config.episodic();
-		return new AgentCoreLongMemoryAdvisor(repository, episodicConfig.strategyId(), "Episodic memory", Mode.EPISODIC,
-				103, episodicConfig.episodesTopK(), episodicConfig.reflectionsTopK());
+		AgentCoreLongMemoryEpisodicConfig episodicConfig = config.episodic();
+		return AgentCoreLongMemoryAdvisor.builder(retriever, Mode.EPISODIC)
+			.strategyId(episodicConfig.strategyId())
+			.reflectionsStrategyId(episodicConfig.reflectionsStrategyId())
+			.contextLabel("Past interactions and reflections (reference when relevant)")
+			.topK(episodicConfig.episodesTopK())
+			.reflectionsTopK(episodicConfig.reflectionsTopK())
+			.scope(episodicConfig.scope())
+			.build();
 	}
 
 }

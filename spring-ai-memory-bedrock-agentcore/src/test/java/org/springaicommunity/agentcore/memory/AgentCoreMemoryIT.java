@@ -28,7 +28,7 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryRepository.MemoryRecord;
+import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryRetriever.MemoryRecord;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -175,14 +175,15 @@ public abstract class AgentCoreMemoryIT {
 	@Order(2)
 	@DisplayName("Should consolidate to LTM with semantic facts, preferences, summary, and episodic")
 	void shouldConsolidateToLTM() {
-		var ltmRepository = new AgentCoreLongMemoryRepository(agentCoreClient, memoryId);
+		var ltmRetriever = new AgentCoreLongMemoryRetriever(agentCoreClient, memoryId);
 
 		// Wait for consolidation (max 3 minutes)
 		long consolidationStartTime = System.currentTimeMillis();
 		await().atMost(Duration.ofMinutes(3)).pollInterval(Duration.ofSeconds(15)).until(() -> {
-			var semantic = ltmRepository.searchMemories(semanticStrategyId, actorId, "Alex engineer", 5);
-			var prefs = ltmRepository.listMemories(preferencesStrategyId, actorId);
-			var summary = ltmRepository.searchSummaries(summaryStrategyId, actorId, sessionId, "conversation", 3);
+			var semantic = ltmRetriever.searchMemories(semanticStrategyId, actorId, "Alex engineer", 5);
+			var prefs = ltmRetriever.listMemories(preferencesStrategyId, actorId);
+			var summary = ltmRetriever.searchSummaries(summaryStrategyId, actorId, sessionId, "conversation", 3,
+					AgentCoreLongMemoryScope.SESSION);
 
 			long elapsed = (System.currentTimeMillis() - consolidationStartTime) / 1000;
 			System.out.printf("Consolidation: semantic=%b prefs=%b summary=%b (elapsed: %d:%02d)%n",
@@ -192,8 +193,7 @@ public abstract class AgentCoreMemoryIT {
 		});
 
 		// Verify semantic facts
-		List<MemoryRecord> semanticFacts = ltmRepository.searchMemories(semanticStrategyId, actorId, "Alex engineer",
-				5);
+		List<MemoryRecord> semanticFacts = ltmRetriever.searchMemories(semanticStrategyId, actorId, "Alex engineer", 5);
 		assertThat(semanticFacts).isNotEmpty();
 		String allSemantic = semanticFacts.stream().map(MemoryRecord::content).reduce("", String::concat).toLowerCase();
 		assertThat(allSemantic).containsAnyOf("alex", "engineer", "software");
@@ -201,21 +201,21 @@ public abstract class AgentCoreMemoryIT {
 		printMemoryRecords("Semantic facts", semanticFacts);
 
 		// Verify preferences
-		List<MemoryRecord> preferences = ltmRepository.listMemories(preferencesStrategyId, actorId);
+		List<MemoryRecord> preferences = ltmRetriever.listMemories(preferencesStrategyId, actorId);
 		assertThat(preferences).isNotEmpty();
 		String allPrefs = preferences.stream().map(MemoryRecord::content).reduce("", String::concat).toLowerCase();
 		assertThat(allPrefs).containsAnyOf("dark mode", "vim", "spring");
 		printMemoryRecords("Preferences", preferences);
 
 		// Verify summary
-		List<MemoryRecord> summaries = ltmRepository.searchSummaries(summaryStrategyId, actorId, sessionId,
-				"conversation", 3);
+		List<MemoryRecord> summaries = ltmRetriever.searchSummaries(summaryStrategyId, actorId, sessionId,
+				"conversation", 3, AgentCoreLongMemoryScope.SESSION);
 		assertThat(summaries).isNotEmpty();
 		assertThat(summaries.get(0).content()).isNotBlank();
 		printMemoryRecords("Summary", summaries);
 
 		// Try to get episodic (don't wait, just check if available)
-		List<MemoryRecord> episodes = ltmRepository.searchMemories(episodicStrategyId, actorId, "Alex engineer", 5);
+		List<MemoryRecord> episodes = ltmRetriever.searchMemories(episodicStrategyId, actorId, "Alex engineer", 5);
 		System.out.println(BOLD + "Episodic (" + episodes.size() + "):" + RESET);
 		if (episodes.isEmpty()) {
 			System.out.println("  (not yet consolidated)");

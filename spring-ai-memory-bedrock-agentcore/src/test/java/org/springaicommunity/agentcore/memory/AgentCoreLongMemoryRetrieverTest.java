@@ -13,7 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryRepository.MemoryRecord;
+import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryRetriever.MemoryRecord;
 
 import software.amazon.awssdk.services.bedrockagentcore.BedrockAgentCoreClient;
 import software.amazon.awssdk.services.bedrockagentcore.model.ListMemoryRecordsRequest;
@@ -24,21 +24,21 @@ import software.amazon.awssdk.services.bedrockagentcore.model.RetrieveMemoryReco
 import software.amazon.awssdk.services.bedrockagentcore.model.RetrieveMemoryRecordsResponse;
 
 /**
- * Unit tests for {@link AgentCoreLongMemoryRepository}.
+ * Unit tests for {@link AgentCoreLongMemoryRetriever}.
  *
  * @author Yuriy Bezsonov
  */
 @ExtendWith(MockitoExtension.class)
-class AgentCoreLongMemoryRepositoryTest {
+class AgentCoreLongMemoryRetrieverTest {
 
 	@Mock
 	private BedrockAgentCoreClient client;
 
-	private AgentCoreLongMemoryRepository repository;
+	private AgentCoreLongMemoryRetriever retriever;
 
 	@BeforeEach
 	void setUp() {
-		repository = new AgentCoreLongMemoryRepository(client, "test-memory-id");
+		retriever = new AgentCoreLongMemoryRetriever(client, "test-memory-id");
 	}
 
 	@Test
@@ -54,7 +54,7 @@ class AgentCoreLongMemoryRepositoryTest {
 			.thenReturn(RetrieveMemoryRecordsResponse.builder().memoryRecordSummaries(summary).build());
 
 		// When
-		List<MemoryRecord> records = repository.searchMemories("strategy-123", "user-456", "coffee preferences", 5);
+		List<MemoryRecord> records = retriever.searchMemories("strategy-123", "user-456", "coffee preferences", 5);
 
 		// Then
 		assertThat(records).hasSize(1);
@@ -85,7 +85,8 @@ class AgentCoreLongMemoryRepositoryTest {
 			.thenReturn(RetrieveMemoryRecordsResponse.builder().memoryRecordSummaries(summary).build());
 
 		// When
-		List<MemoryRecord> records = repository.searchSummaries("strategy-123", "user-456", "session-789", "travel", 3);
+		List<MemoryRecord> records = retriever.searchSummaries("strategy-123", "user-456", "session-789", "travel", 3,
+				AgentCoreLongMemoryScope.SESSION);
 
 		// Then
 		assertThat(records).hasSize(1);
@@ -115,7 +116,7 @@ class AgentCoreLongMemoryRepositoryTest {
 			.thenReturn(ListMemoryRecordsResponse.builder().memoryRecordSummaries(summary1, summary2).build());
 
 		// When
-		List<MemoryRecord> records = repository.listMemories("strategy-123", "user-456");
+		List<MemoryRecord> records = retriever.listMemories("strategy-123", "user-456");
 
 		// Then
 		assertThat(records).hasSize(2);
@@ -130,16 +131,17 @@ class AgentCoreLongMemoryRepositoryTest {
 	}
 
 	@Test
-	void shouldReturnEmptyListOnException() {
+	void shouldThrowExceptionOnApiError() {
 		// Given
 		when(client.retrieveMemoryRecords(any(RetrieveMemoryRecordsRequest.class)))
 			.thenThrow(new RuntimeException("API error"));
 
-		// When
-		List<MemoryRecord> records = repository.searchMemories("strategy-123", "user-456", "query", 5);
-
-		// Then
-		assertThat(records).isEmpty();
+		// When/Then
+		org.assertj.core.api.Assertions
+			.assertThatThrownBy(() -> retriever.searchMemories("strategy-123", "user-456", "query", 5))
+			.isInstanceOf(AgentCoreMemoryException.class)
+			.hasMessageContaining("Failed to search memories")
+			.hasCauseInstanceOf(RuntimeException.class);
 	}
 
 	@Test
@@ -155,7 +157,7 @@ class AgentCoreLongMemoryRepositoryTest {
 			.thenReturn(RetrieveMemoryRecordsResponse.builder().memoryRecordSummaries(summary).build());
 
 		// When
-		List<MemoryRecord> records = repository.searchMemories("strategy-123", "user-456", "query", 5);
+		List<MemoryRecord> records = retriever.searchMemories("strategy-123", "user-456", "query", 5);
 
 		// Then
 		assertThat(records).hasSize(1);

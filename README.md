@@ -330,18 +330,15 @@ agentcore:
   memory:
     memory-id: ${AGENTCORE_MEMORY_MEMORY_ID}
     long-term:
+      enabled: true
       semantic:
         strategy-id: ${AGENTCORE_MEMORY_LONG_TERM_SEMANTIC_STRATEGY_ID}
-        top-k: 5
       user-preference:
         strategy-id: ${AGENTCORE_MEMORY_LONG_TERM_USER_PREFERENCE_STRATEGY_ID}
       summary:
         strategy-id: ${AGENTCORE_MEMORY_LONG_TERM_SUMMARY_STRATEGY_ID}
-        top-k: 3
       episodic:
         strategy-id: ${AGENTCORE_MEMORY_LONG_TERM_EPISODIC_STRATEGY_ID}
-        episodes-top-k: 3
-        reflections-top-k: 2
 ```
 
 **Usage with STM + LTM:**
@@ -352,40 +349,28 @@ public class ChatService {
     private final ChatClient chatClient;
 
     public ChatService(ChatClient.Builder builder,
-                       ChatMemoryRepository memoryRepository,
-                       @Autowired(required = false) List<AgentCoreLongMemoryAdvisor> ltmAdvisors,
-                       @Value("${agentcore.memory.memory-id:}") String memoryId) {
+                       ChatMemory chatMemory,
+                       List<AgentCoreLongMemoryAdvisor> ltmAdvisors) {
 
-        List<Advisor> advisors = new ArrayList<>();
-
-        // STM - only if memory ID configured
-        if (!memoryId.isEmpty()) {
-            ChatMemory chatMemory = MessageWindowChatMemory.builder()
-                    .chatMemoryRepository(memoryRepository)
-                    .maxMessages(Integer.MAX_VALUE)  // Actual limit: agentcore.memory.total-events-limit
-                    .build();
-            advisors.add(MessageChatMemoryAdvisor.builder(chatMemory).build());
-        }
-
-        // LTM - auto-configured advisors for each strategy
-        if (ltmAdvisors != null) {
-            advisors.addAll(ltmAdvisors);
-        }
+        List<Advisor> advisors = new ArrayList<>(ltmAdvisors);
+        advisors.add(MessageChatMemoryAdvisor.builder(chatMemory).build());
 
         this.chatClient = builder
                 .defaultAdvisors(advisors.toArray(new Advisor[0]))
                 .build();
     }
 
-    public Flux<String> chat(String userId, String sessionId, String message) {
+    public Flux<String> chat(String conversationId, String message) {
         return chatClient.prompt()
                 .user(message)
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userId + ":" + sessionId))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                 .stream()
                 .content();
     }
 }
 ```
+
+The `ChatMemory` and `AgentCoreLongMemoryAdvisor` beans are auto-configured when you set the required properties.
 
 For detailed configuration options and API reference, see [spring-ai-memory-bedrock-agentcore/README.md](spring-ai-memory-bedrock-agentcore/README.md).
 
