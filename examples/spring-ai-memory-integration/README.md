@@ -12,47 +12,39 @@ This example creates and uses the AgentCore Long-Term Memory Summary Strategy.
 
 ## Architecture
 
-```mermaid
-sequenceDiagram
-   autonumber
-   participant CC as ChatClient (with Advisors)
-   participant LMA as AgentCoreLongMemoryAdvisor
-   participant SMA as MessageChatMemoryAdvisor
-   participant Repos as AgentCoreShortMemoryRepository
-   participant Retr as AgentCoreLongMemoryRetriever
-   participant AWS as Bedrock AgentCore
-   participant LLM as Model (e.g. Nova)
-
-   rect rgb(240, 240, 255)
-      Note right of LMA: LTM Advisor
-      CC->>LMA: intercept chat message
-      LMA->>Retr: search/listMemories
-      Retr->>AWS: List/Search Events
-      AWS-->>Retr: Memory Fragments (Semantic/Episodic/Summary/User Pref)
-      Retr-->>LMA: List<MemoryRecord>
-      LMA->>CC: Inject memories into System/User message
-   end
-
-   rect rgb(230, 255, 230)
-      Note right of SMA: Short Memory Advisor
-      CC->>SMA: intercept chat message
-      SMA->>Repos: get memory history
-      Repos->>AWS: listEvents
-      AWS-->>Repos: AgentCore Events
-      Repos-->>SMA: List<Message> (Linear History)
-      SMA->>CC: Append history to messages
-   end
-
-   CC->>LLM: Augmented Prompt (History + LTM + Prompt)
-   LLM-->>CC: Assistant Response
-
-   rect rgb(230, 255, 230)
-      Note right of SMA: Short Memory Save
-      CC->>SMA: save message
-      SMA->>Repos: save message
-      Note right of Repos: Delta Detection
-      Repos->>AWS: persist message
-   end
+```
+  User          ChatClient       STM Advisor      LTM Advisor      AgentCore       LLM
+   │                │                │                │                │            │
+   │  prompt        │                │                │                │            │
+   │───────────────>│                │                │                │            │
+   │                │                │                │                │            │
+   │                │  1. get history│                │                │            │
+   │                │───────────────>│                │                │            │
+   │                │                │  listEvents    │                │            │
+   │                │                │────────────────────────────────>│            │
+   │                │                │<────────────────────────────────│            │
+   │                │<───────────────│  messages      │                │            │
+   │                │                │                │                │            │
+   │                │  2. retrieve LTM                │                │            │
+   │                │────────────────────────────────>│                │            │
+   │                │                │                │  searchMemories│            │
+   │                │                │                │───────────────>│            │
+   │                │                │                │<───────────────│            │
+   │                │<────────────────────────────────│  memories      │            │
+   │                │                │                │                │            │
+   │                │  3. invoke (history + LTM + prompt)              │            │
+   │                │──────────────────────────────────────────────────────────────>│
+   │                │<──────────────────────────────────────────────────────────────│
+   │                │                │                │                │  response  │
+   │                │                │                │                │            │
+   │                │  4. save messages               │                │            │
+   │                │───────────────>│                │                │            │
+   │                │                │  putEvents     │                │            │
+   │                │                │────────────────────────────────>│            │
+   │                │                │<────────────────────────────────│            │
+   │                │                │                │                │            │
+   │<───────────────│  response      │                │                │            │
+   │                │                │                │                │            │
 ```
 
 ## Quick Start

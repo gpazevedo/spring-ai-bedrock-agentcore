@@ -159,7 +159,8 @@ class AgentCoreLongMemoryAdvisorTest {
 	@Test
 	void shouldEnrichWithEpisodicMemoriesFromSeparateStrategies() {
 		// Given - separate strategies for episodes and reflections
-		AgentCoreLongMemoryAdvisor episodicAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.EPISODIC)
+		AgentCoreLongMemoryAdvisor episodicAdvisor = AgentCoreLongMemoryAdvisor
+			.builder(retriever, MemoryStrategy.EPISODIC)
 			.strategyId("episodes-strategy")
 			.reflectionsStrategyId("reflections-strategy")
 			.contextLabel("Episodic context")
@@ -205,7 +206,8 @@ class AgentCoreLongMemoryAdvisorTest {
 	@Test
 	void shouldEnrichWithEpisodesOnlyWhenNoReflectionsStrategy() {
 		// Given - only episodes strategy, no reflections
-		AgentCoreLongMemoryAdvisor episodicAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.EPISODIC)
+		AgentCoreLongMemoryAdvisor episodicAdvisor = AgentCoreLongMemoryAdvisor
+			.builder(retriever, MemoryStrategy.EPISODIC)
 			.strategyId("episodes-strategy")
 			.contextLabel("Episodic context")
 			.order(103)
