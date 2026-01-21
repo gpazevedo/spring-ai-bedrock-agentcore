@@ -36,7 +36,7 @@ public class ChatController {
 				.defaultAdvisors(agentCoreMemory.advisors)
 				.build();
 
-		// NOTE! The memory events are removed on startup
+		// NOTE! The short-term memory events are removed on startup to run example on clean initial state
 		memoryRepository.deleteByConversationId(CONVERSATION_ID);
 	}
 

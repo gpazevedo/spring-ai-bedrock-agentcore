@@ -1,8 +1,25 @@
+/*
+ * Copyright 2025-2025 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springaicommunity.agentcore.memory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +66,7 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 
 	private final String contextLabel;
 
-	private final Mode mode;
+	private final MemoryStrategy mode;
 
 	private final int order;
 
@@ -59,13 +76,13 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 
 	private final AgentCoreLongMemoryScope scope;
 
-	public enum Mode {
+	public enum MemoryStrategy {
 
-		SEMANTIC(100), USER_PREFERENCE(101), SUMMARY(102), EPISODIC(103);
+		SEMANTIC(100), USER_PREFERENCE(200), SUMMARY(300), EPISODIC(400);
 
 		private final int order;
 
-		Mode(int order) {
+		MemoryStrategy(int order) {
 			this.order = order;
 		}
 
@@ -90,7 +107,7 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 				this.mode, this.strategyId, this.reflectionsStrategyId, this.scope);
 	}
 
-	public static Builder builder(AgentCoreLongMemoryRetriever retriever, Mode mode) {
+	public static Builder builder(AgentCoreLongMemoryRetriever retriever, MemoryStrategy mode) {
 		return new Builder(retriever, mode);
 	}
 
@@ -98,7 +115,7 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 
 		private final AgentCoreLongMemoryRetriever retriever;
 
-		private final Mode mode;
+		private final MemoryStrategy mode;
 
 		private String strategyId;
 
@@ -114,13 +131,9 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 
 		private AgentCoreLongMemoryScope scope = AgentCoreLongMemoryScope.ACTOR;
 
-		private Builder(AgentCoreLongMemoryRetriever retriever, Mode mode) {
-			if (retriever == null) {
-				throw new IllegalArgumentException("retriever is required");
-			}
-			if (mode == null) {
-				throw new IllegalArgumentException("mode is required");
-			}
+		private Builder(AgentCoreLongMemoryRetriever retriever, MemoryStrategy mode) {
+			Objects.requireNonNull(retriever, "AgentCore Long-Term memory retriever is required");
+			Objects.requireNonNull(mode, "mode is required");
 			this.retriever = retriever;
 			this.mode = mode;
 		}
@@ -184,11 +197,11 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 		String userId = parsed.actor();
 		String sessionId = parsed.session();
 
-		if (this.mode == Mode.SUMMARY) {
+		if (this.mode == MemoryStrategy.SUMMARY) {
 			return enrichWithSummary(request, userId, sessionId);
 		}
 
-		if (this.mode == Mode.EPISODIC) {
+		if (this.mode == MemoryStrategy.EPISODIC) {
 			return enrichWithEpisodic(request, userId, sessionId);
 		}
 
@@ -264,7 +277,7 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 	}
 
 	private List<MemoryRecord> fetchMemories(ChatClientRequest request, String userId, String sessionId) {
-		if (this.mode == Mode.SEMANTIC) {
+		if (this.mode == MemoryStrategy.SEMANTIC) {
 			String userPrompt = extractUserText(request);
 			if (userPrompt == null || userPrompt.isEmpty()) {
 				return List.of();

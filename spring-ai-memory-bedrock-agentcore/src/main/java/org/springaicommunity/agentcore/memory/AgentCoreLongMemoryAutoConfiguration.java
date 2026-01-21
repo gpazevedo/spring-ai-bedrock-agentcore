@@ -1,3 +1,19 @@
+/*
+ * Copyright 2025-2025 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.springaicommunity.agentcore.memory;
 
 import java.util.HashMap;
@@ -5,18 +21,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryAdvisor.Mode;
+import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryAdvisor.MemoryStrategy;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.AnyNestedCondition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
@@ -156,7 +170,7 @@ public class AgentCoreLongMemoryAutoConfiguration {
 	AgentCoreLongMemoryAdvisor semanticAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryProperties config) {
 		var semanticConfig = config.semantic();
-		return AgentCoreLongMemoryAdvisor.builder(retriever, Mode.SEMANTIC)
+		return AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.SEMANTIC)
 			.strategyId(semanticConfig.strategyId())
 			.contextLabel("Known facts about the user (use naturally in conversation)")
 			.topK(semanticConfig.topK())
@@ -170,7 +184,7 @@ public class AgentCoreLongMemoryAutoConfiguration {
 	AgentCoreLongMemoryAdvisor userPreferenceAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryProperties config) {
 		var prefConfig = config.userPreference();
-		return AgentCoreLongMemoryAdvisor.builder(retriever, Mode.USER_PREFERENCE)
+		return AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.USER_PREFERENCE)
 			.strategyId(prefConfig.strategyId())
 			.contextLabel("User preferences (apply when relevant)")
 			.scope(prefConfig.scope())
@@ -183,7 +197,7 @@ public class AgentCoreLongMemoryAutoConfiguration {
 	AgentCoreLongMemoryAdvisor summaryAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryProperties config) {
 		var summaryConfig = config.summary();
-		return AgentCoreLongMemoryAdvisor.builder(retriever, Mode.SUMMARY)
+		return AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.SUMMARY)
 			.strategyId(summaryConfig.strategyId())
 			.contextLabel("Previous conversation summaries (use for continuity)")
 			.topK(summaryConfig.topK())
@@ -197,7 +211,7 @@ public class AgentCoreLongMemoryAutoConfiguration {
 	AgentCoreLongMemoryAdvisor episodicAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryProperties config) {
 		var episodicConfig = config.episodic();
-		return AgentCoreLongMemoryAdvisor.builder(retriever, Mode.EPISODIC)
+		return AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.EPISODIC)
 			.strategyId(episodicConfig.strategyId())
 			.reflectionsStrategyId(episodicConfig.reflectionsStrategyId())
 			.contextLabel("Past interactions and reflections (reference when relevant)")

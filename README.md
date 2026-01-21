@@ -312,6 +312,8 @@ public class ChatService {
 
 ### Long-Term Memory (LTM)
 
+Long-term memory (LTM) is derived from short-term memory (STM) and is automatically consolidated by Bedrock AgentCore through an asynchronous process. For more details, see the [Long-Term Memory documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/long-term-memory-long-term.html).
+
 LTM provides persistent knowledge across sessions with 4 consolidation strategies:
 
 | Strategy | Purpose | Retrieval |

@@ -1,25 +1,11 @@
 package org.springaicommunity.agentcore.memory;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.util.List;
-import java.util.Map;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryAdvisor.Mode;
+import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryAdvisor.MemoryStrategy;
 import org.springaicommunity.agentcore.memory.AgentCoreLongMemoryRetriever.MemoryRecord;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
@@ -27,6 +13,15 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link AgentCoreLongMemoryAdvisor}.
@@ -48,13 +43,13 @@ class AgentCoreLongMemoryAdvisorTest {
 
 	@BeforeEach
 	void setUp() {
-		semanticAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, Mode.SEMANTIC)
+		semanticAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.SEMANTIC)
 			.strategyId("strategy-123")
 			.contextLabel("Known facts")
 			.order(100)
 			.topK(3)
 			.build();
-		listAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, Mode.USER_PREFERENCE)
+		listAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.USER_PREFERENCE)
 			.strategyId("strategy-456")
 			.contextLabel("User preferences")
 			.order(101)
@@ -164,7 +159,7 @@ class AgentCoreLongMemoryAdvisorTest {
 	@Test
 	void shouldEnrichWithEpisodicMemoriesFromSeparateStrategies() {
 		// Given - separate strategies for episodes and reflections
-		AgentCoreLongMemoryAdvisor episodicAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, Mode.EPISODIC)
+		AgentCoreLongMemoryAdvisor episodicAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.EPISODIC)
 			.strategyId("episodes-strategy")
 			.reflectionsStrategyId("reflections-strategy")
 			.contextLabel("Episodic context")
@@ -210,7 +205,7 @@ class AgentCoreLongMemoryAdvisorTest {
 	@Test
 	void shouldEnrichWithEpisodesOnlyWhenNoReflectionsStrategy() {
 		// Given - only episodes strategy, no reflections
-		AgentCoreLongMemoryAdvisor episodicAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, Mode.EPISODIC)
+		AgentCoreLongMemoryAdvisor episodicAdvisor = AgentCoreLongMemoryAdvisor.builder(retriever, MemoryStrategy.EPISODIC)
 			.strategyId("episodes-strategy")
 			.contextLabel("Episodic context")
 			.order(103)
