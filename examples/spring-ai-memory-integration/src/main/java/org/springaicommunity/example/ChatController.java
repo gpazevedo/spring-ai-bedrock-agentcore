@@ -14,6 +14,7 @@ public class ChatController {
 	private final ChatClient shortTermChatClient;
 	private final ChatClient longTermChatClient;
 	private final ChatMemory chatMemory;
+	private final AgentCoreMemory agentCoreMemory;
 	private final AgentCoreLongMemoryRetriever retriever;
 	private final AgentCoreLongMemoryProperties config;
 
@@ -24,29 +25,26 @@ public class ChatController {
             AgentCoreMemory agentCoreMemory, ChatMemory chatMemory,
 			AgentCoreLongMemoryRetriever retriever, AgentCoreLongMemoryProperties config,
 			AgentCoreShortMemoryRepository memoryRepository) {
+		this.agentCoreMemory = agentCoreMemory;
         this.chatMemory = chatMemory;
 		this.retriever = retriever;
 		this.config = config;
 
-        this.shortTermChatClient = chatClientBuilder
-			.defaultAdvisors(agentCoreMemory.shortMemoryAdvisor)
-			.build();
-
-		this.longTermChatClient = chatClientBuilder
-				.defaultAdvisors(agentCoreMemory.advisors)
-				.build();
+        this.shortTermChatClient = chatClientBuilder.build();
+		this.longTermChatClient = chatClientBuilder.build();
 
 		// NOTE! The short-term memory events are removed on startup to run example on clean initial state
 		memoryRepository.deleteByConversationId(CONVERSATION_ID);
-	}
+    }
 
 	@PostMapping("/api/short")
 	public ChatResponse shortChat(@RequestBody ChatRequest request) {
 		String response = shortTermChatClient.prompt()
-			.user(request.message())
-			.advisors(a -> a.param(ChatMemory.CONVERSATION_ID, CONVERSATION_ID))
-			.call()
-			.content();
+				.user(request.message())
+				.advisors(agentCoreMemory.shortMemoryAdvisor)
+				.advisors(a -> a.param(ChatMemory.CONVERSATION_ID, CONVERSATION_ID))
+				.call()
+				.content();
 
 		return new ChatResponse(response);
 	}
@@ -55,6 +53,7 @@ public class ChatController {
 	public ChatResponse longChat(@RequestBody ChatRequest request) {
 		String response = longTermChatClient.prompt()
 				.user(request.message())
+				.advisors(agentCoreMemory.advisors)
 				.advisors(a -> a.param(ChatMemory.CONVERSATION_ID, CONVERSATION_ID))
 				.call()
 				.content();
