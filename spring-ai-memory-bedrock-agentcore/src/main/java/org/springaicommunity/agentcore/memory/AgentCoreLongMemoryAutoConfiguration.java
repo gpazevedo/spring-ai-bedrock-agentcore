@@ -88,6 +88,7 @@ public class AgentCoreLongMemoryAutoConfiguration {
 	 */
 	@Bean
 	@ConditionalOnMissingBean
+	@Conditional(AnyStrategyConfiguredCondition.class)
 	Supplier<BedrockAgentCoreControlClient> controlClientFactory() {
 		return BedrockAgentCoreControlClient::create;
 	}
@@ -165,7 +166,7 @@ public class AgentCoreLongMemoryAutoConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnBean(AgentCoreLongMemoryRetriever.class)
+	@ConditionalOnMissingBean(name = "semanticAdvisor")
 	@ConditionalOnProperty(prefix = AgentCoreLongMemoryProperties.Semantic.CONFIG_PREFIX, name = "strategy-id")
 	AgentCoreLongMemoryAdvisor semanticAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryProperties config) {
@@ -179,7 +180,7 @@ public class AgentCoreLongMemoryAutoConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnBean(AgentCoreLongMemoryRetriever.class)
+	@ConditionalOnMissingBean(name = "userPreferenceAdvisor")
 	@ConditionalOnProperty(prefix = AgentCoreLongMemoryProperties.UserPreference.CONFIG_PREFIX, name = "strategy-id")
 	AgentCoreLongMemoryAdvisor userPreferenceAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryProperties config) {
@@ -192,7 +193,7 @@ public class AgentCoreLongMemoryAutoConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnBean(AgentCoreLongMemoryRetriever.class)
+	@ConditionalOnMissingBean(name = "summaryAdvisor")
 	@ConditionalOnProperty(prefix = AgentCoreLongMemoryProperties.Summary.CONFIG_PREFIX, name = "strategy-id")
 	AgentCoreLongMemoryAdvisor summaryAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryProperties config) {
@@ -206,7 +207,7 @@ public class AgentCoreLongMemoryAutoConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnBean(AgentCoreLongMemoryRetriever.class)
+	@ConditionalOnMissingBean(name = "episodicAdvisor")
 	@ConditionalOnProperty(prefix = AgentCoreLongMemoryProperties.Episodic.CONFIG_PREFIX, name = "strategy-id")
 	AgentCoreLongMemoryAdvisor episodicAdvisor(AgentCoreLongMemoryRetriever retriever,
 			AgentCoreLongMemoryProperties config) {

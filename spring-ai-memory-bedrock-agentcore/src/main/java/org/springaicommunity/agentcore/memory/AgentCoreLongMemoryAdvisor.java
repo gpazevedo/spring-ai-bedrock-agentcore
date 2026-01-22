@@ -66,7 +66,7 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 
 	private final String contextLabel;
 
-	private final MemoryStrategy mode;
+	private final MemoryStrategy memoryStrategy;
 
 	private final int order;
 
@@ -97,14 +97,14 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 		this.strategyId = builder.strategyId;
 		this.reflectionsStrategyId = builder.reflectionsStrategyId;
 		this.contextLabel = builder.contextLabel;
-		this.mode = builder.mode;
+		this.memoryStrategy = builder.mode;
 		this.order = builder.order != null ? builder.order : builder.mode.getOrder();
 		this.topK = builder.topK;
 		this.reflectionsTopK = builder.reflectionsTopK;
 		this.scope = builder.scope;
 		logger.info(
 				"AgentCoreLongMemoryAdvisor initialized: mode={}, strategyId={}, reflectionsStrategyId={}, scope={}",
-				this.mode, this.strategyId, this.reflectionsStrategyId, this.scope);
+				this.memoryStrategy, this.strategyId, this.reflectionsStrategyId, this.scope);
 	}
 
 	public static Builder builder(AgentCoreLongMemoryRetriever retriever, MemoryStrategy mode) {
@@ -197,11 +197,11 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 		String userId = parsed.actor();
 		String sessionId = parsed.session();
 
-		if (this.mode == MemoryStrategy.SUMMARY) {
+		if (this.memoryStrategy == MemoryStrategy.SUMMARY) {
 			return enrichWithSummary(request, userId, sessionId);
 		}
 
-		if (this.mode == MemoryStrategy.EPISODIC) {
+		if (this.memoryStrategy == MemoryStrategy.EPISODIC) {
 			return enrichWithEpisodic(request, userId, sessionId);
 		}
 
@@ -277,7 +277,7 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 	}
 
 	private List<MemoryRecord> fetchMemories(ChatClientRequest request, String userId, String sessionId) {
-		if (this.mode == MemoryStrategy.SEMANTIC) {
+		if (this.memoryStrategy == MemoryStrategy.SEMANTIC) {
 			String userPrompt = extractUserText(request);
 			if (userPrompt == null || userPrompt.isEmpty()) {
 				return List.of();
@@ -366,7 +366,7 @@ public class AgentCoreLongMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 
 	@Override
 	public String getName() {
-		return "AgentCoreLongMemoryAdvisor-" + this.mode;
+		return "AgentCoreLongMemoryAdvisor-" + this.memoryStrategy;
 	}
 
 	@Override
