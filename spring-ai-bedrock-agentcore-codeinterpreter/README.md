@@ -5,6 +5,7 @@ Spring AI integration with Amazon Bedrock AgentCore Code Interpreter. Execute Py
 ## Features
 
 - Execute code in Python, JavaScript, or TypeScript
+- Pre-installed libraries: numpy, pandas, matplotlib (Python)
 - Automatic file retrieval (charts, CSVs, PDFs)
 - Session-scoped file storage for multi-user environments
 - Configurable tool description for LLM
@@ -45,9 +46,10 @@ public class ChatService {
     public Flux<String> chat(String prompt, String sessionId) {
         return chatClient.prompt()
             .user(prompt)
-            .toolContext(Map.of(CodeInterpreterFileStore.SESSION_ID_KEY, sessionId))
             .stream().content()
-            .concatWith(Flux.defer(() -> appendGeneratedFiles(sessionId)));
+            .concatWith(Flux.defer(() -> appendGeneratedFiles(sessionId)))
+            // Store sessionId in Reactor context for tools
+            .contextWrite(ctx -> ctx.put(CodeInterpreterTools.SESSION_ID_CONTEXT_KEY, sessionId));
     }
 
     private Flux<String> appendGeneratedFiles(String sessionId) {
@@ -70,6 +72,21 @@ public class ChatService {
 }
 ```
 
+## Session Context
+
+Session ID is propagated via `ToolCallReactiveContextHolder` (not `@RequestScope`) because tool execution happens on `Schedulers.boundedElastic()` threads, not HTTP request threads.
+
+**How it works:**
+1. `ChatService.chat()` stores sessionId in Reactor context via `.contextWrite()`
+2. Spring AI captures Reactor context before tool execution
+3. Spring AI stores it in ThreadLocal via `ToolCallReactiveContextHolder.setContext(ctx)`
+4. Tools read sessionId from `ToolCallReactiveContextHolder.getContext()`
+5. Spring AI clears ThreadLocal in `finally` block
+
+**Multi-user support:**
+- AgentCore Runtime (one instance per user): uses `DEFAULT_SESSION_ID`
+- EKS/ECS (shared instance): uses conversation `sessionId` from Reactor context
+
 ## Configuration
 
 ```properties
@@ -80,6 +97,11 @@ agentcore.code-interpreter.file-store-ttl-seconds=300
 agentcore.code-interpreter.code-interpreter-identifier=aws.codeinterpreter.v1
 agentcore.code-interpreter.tool-description=Custom tool description...
 ```
+
+## Output Format
+
+- **Images**: Inline preview using data URL (`![name](data:image/png;base64,...)`)
+- **Other files**: Download link using data URL (`[Download name](data:mime/type;base64,...)`)
 
 ## Integration Test
 

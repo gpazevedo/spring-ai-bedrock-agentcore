@@ -13,8 +13,10 @@ Spring AI integration with Amazon Bedrock AgentCore Code Interpreter. Executes P
 │                     CodeInterpreterTools                        │
 │                   (Tool implementation logic)                   │
 ├─────────────────────────────────────────────────────────────────┤
-│  executeCode(language, code, toolContext) → String              │
+│  SESSION_ID_CONTEXT_KEY = "sessionId"                           │
+│  executeCode(language, code) → String                           │
 │    - Validates language (python, javascript, typescript)        │
+│    - Gets sessionId from ToolCallReactiveContextHolder          │
 │    - Executes code via client                                   │
 │    - Stores files in FileStore                                  │
 │    - Returns text-only result to LLM                            │
@@ -31,6 +33,35 @@ Spring AI integration with Amazon Bedrock AgentCore Code Interpreter. Executes P
 │  readFiles(sessionId, paths) → List<GeneratedFile>              │
 │  stopSession(sessionId)                                         │
 │  executeInEphemeralSession(language, code) → CodeExecutionResult│
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ returns
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     CodeExecutionResult                         │
+├─────────────────────────────────────────────────────────────────┤
+│  String textOutput          // stdout/stderr combined           │
+│  boolean isError            // from SDK isError flag            │
+│  List<GeneratedFile> files  // images, PDFs, CSVs, etc.         │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                       GeneratedFile                             │
+├─────────────────────────────────────────────────────────────────┤
+│  String mimeType            // "image/png", "application/pdf"   │
+│  byte[] data                // raw bytes (defensively copied)   │
+│  String name                // filename                         │
+│  isImage(), isText(), toDataUrl(), size()                       │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   CodeInterpreterFileStore                      │
+│            (Session-scoped file storage with TTL)               │
+├─────────────────────────────────────────────────────────────────┤
+│  DEFAULT_SESSION_ID = "default"                                 │
+│  Caffeine cache with TTL (default 5 min) and max 1000 entries   │
+│  store(sessionId, files)  // store files for session            │
+│  retrieve(sessionId) → List<GeneratedFile>  // get and clear    │
+│  hasFiles(sessionId) → boolean                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -41,7 +72,7 @@ Spring AI integration with Amazon Bedrock AgentCore Code Interpreter. Executes P
 | `AgentCoreCodeInterpreterAutoConfiguration` | Spring Boot auto-config with `ToolCallbackProvider` |
 | `AgentCoreCodeInterpreterClient` | Low-level SDK wrapper with configurable timeouts |
 | `AgentCoreCodeInterpreterConfiguration` | Config properties (timeouts, TTL, identifier, description) |
-| `CodeInterpreterTools` | Tool implementation logic (no annotations) |
+| `CodeInterpreterTools` | Tool implementation with session context from `ToolCallReactiveContextHolder` |
 | `CodeInterpreterFileStore` | Session-scoped file storage with Caffeine cache and TTL |
 | `CodeExecutionResult` | Record for execution results with null-safe defaults |
 | `GeneratedFile` | Record for file data with defensive copy and helper methods |
@@ -51,26 +82,41 @@ Spring AI integration with Amazon Bedrock AgentCore Code Interpreter. Executes P
 
 1. **ToolCallbackProvider pattern** - Programmatic tool registration with configurable description
 2. **File handling in ChatService** - Files appended after stream completes, outside memory flow
-3. **Session-scoped file storage** - Uses `ToolContext` to pass session ID for multi-user support
+3. **Reactor context for session ID** - Session ID passed via `ToolCallReactiveContextHolder`, not `ToolContext`, to avoid leaking metadata to MCP tools
 4. **No advisor** - Avoids files being stored in conversation memory (context overflow)
 5. **Null-safe records** - `CodeExecutionResult` and `GeneratedFile` use defensive copies
 6. **TTL-based cleanup** - Caffeine cache with 5-minute TTL prevents memory leaks
+7. **Input validation** - Tool validates language and code parameters before execution
 
 ## Request Flow
 
 ```
 1. User: "Create a chart showing Q1 sales"
-2. ChatService passes sessionId via toolContext
-3. LLM calls executeCode tool
-4. CodeInterpreterTools.executeCode():
-   a. Extract sessionId from toolContext
+2. ChatService stores sessionId in Reactor context via .contextWrite()
+3. LLM decides to call executeCode tool
+4. Spring AI captures Reactor context, stores in ThreadLocal via ToolCallReactiveContextHolder
+5. CodeInterpreterTools.executeCode(language, code):
+   a. Get sessionId from ToolCallReactiveContextHolder (or use DEFAULT_SESSION_ID)
    b. client.executeInEphemeralSession(language, code)
    c. fileStore.store(sessionId, files)
    d. Return text-only result to LLM
-5. Memory stores: user message + LLM response (NO files)
-6. ChatService.appendGeneratedFiles(sessionId)
-7. User sees: LLM response + chart image
+6. Spring AI clears ThreadLocal in finally block
+7. LLM responds: "Here's your Q1 sales chart..."
+8. Memory stores: user message + LLM response (NO files)
+9. ChatService.appendGeneratedFiles(sessionId)
+10. User sees: LLM response + chart image
 ```
+
+## Why ToolCallReactiveContextHolder (not @RequestScope)
+
+Tool execution happens on `Schedulers.boundedElastic()` thread pool, not the HTTP request thread. `@RequestScope` beans throw `ScopeNotActiveException` because no HTTP request context exists on those threads.
+
+Spring AI's `ToolCallReactiveContextHolder` bridges Reactor context to ThreadLocal:
+1. `ChatService.chat()` stores sessionId in Reactor context via `.contextWrite()`
+2. Spring AI captures Reactor context before tool execution
+3. Spring AI stores it in ThreadLocal via `ToolCallReactiveContextHolder.setContext(ctx)`
+4. Tools read sessionId from `ToolCallReactiveContextHolder.getContext()`
+5. Spring AI clears ThreadLocal in `finally` block before thread returns to pool
 
 ## Configuration
 
@@ -94,6 +140,42 @@ mvn spring-javaformat:apply -pl spring-ai-bedrock-agentcore-codeinterpreter
 # Integration test (requires AWS credentials)
 AGENTCORE_IT=true mvn verify -pl spring-ai-bedrock-agentcore-codeinterpreter
 ```
+
+## Integration Tests
+
+**CodeInterpreterToolsIT (21 tests):**
+
+| Test | Coverage |
+|------|----------|
+| `shouldExecutePythonCode` | executeCode("python") |
+| `shouldExecuteJavaScriptCode` | executeCode("javascript") |
+| `shouldExecuteTypeScriptCode` | executeCode("typescript") |
+| `shouldStoreImageFileBySessionId` | chart + store + isImage() |
+| `shouldStoreCsvFileBySessionId` | CSV + store + isText() |
+| `shouldUseDefaultSessionWhenNull` | null → DEFAULT |
+| `shouldRetrieveFilesOnlyFromOwnSession` | session isolation |
+| `shouldClearFilesAfterRetrieve` | retrieve() clears |
+| `shouldAccumulateFilesInSameSession` | multiple stores append |
+| `shouldHasFilesReturnCorrectly` | hasFiles() |
+| `shouldGeneratedFileToDataUrlReturnValidFormat` | GeneratedFile.toDataUrl() |
+| `shouldGeneratedFileSizeReturnCorrectValue` | GeneratedFile.size() |
+| `shouldCodeExecutionResultHasFilesWork` | CodeExecutionResult.hasFiles() |
+| `shouldRejectNullLanguage` | input validation |
+| `shouldRejectBlankLanguage` | input validation |
+| `shouldRejectUnsupportedLanguage` | input validation |
+| `shouldRejectNullCode` | input validation |
+| `shouldRejectBlankCode` | input validation |
+| `shouldHandleExecutionError` | isError=true |
+| `shouldFormatErrorOutputCorrectly` | error prefix |
+| `shouldIsolateFilesBetweenParallelSessions` | Parallel session isolation |
+
+**CodeInterpreterChatFlowIT (3 tests):**
+
+| Test | Coverage |
+|------|----------|
+| `shouldPropagateSessionIdThroughChatClientStreamingFlow` | Session ID flows from ChatClient to tool |
+| `shouldStoreFilesUnderCorrectSessionIdThroughChatClientFlow` | Files stored by session |
+| `shouldIsolateFilesBetweenSessionsThroughChatClientFlow` | Parallel session isolation |
 
 ## Not Implemented
 

@@ -88,8 +88,7 @@ public class AgentCoreCodeInterpreterAutoConfiguration {
 
 		ToolCallback executeCodeCallback = FunctionToolCallback
 			.builder("executeCode",
-					(ExecuteCodeRequest request, org.springframework.ai.chat.model.ToolContext ctx) -> tools
-						.executeCode(request.language(), request.code(), ctx))
+					(ExecuteCodeRequest request) -> tools.executeCode(request.language(), request.code()))
 			.description(description)
 			.inputType(ExecuteCodeRequest.class)
 			.build();

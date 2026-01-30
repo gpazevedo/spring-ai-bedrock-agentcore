@@ -105,8 +105,8 @@ public class AgentCoreCodeInterpreterClient {
 				.build());
 			logger.debug("Stopped session: {}", sessionId);
 		}
-		catch (Exception ex) {
-			logger.warn("Failed to stop session {}: {}", sessionId, ex.getMessage());
+		catch (Exception e) {
+			logger.warn("Failed to stop session {}: {}", sessionId, e.getMessage());
 		}
 	}
 
@@ -154,10 +154,10 @@ public class AgentCoreCodeInterpreterClient {
 
 			future.get(this.asyncTimeoutSeconds, TimeUnit.SECONDS);
 		}
-		catch (Exception ex) {
-			logger.error("Code execution failed", ex);
+		catch (Exception e) {
+			logger.error("Code execution failed", e);
 			isError.set(true);
-			textOutput.append("Execution error: ").append(ex.getMessage());
+			textOutput.append("Execution error: ").append(e.getMessage());
 		}
 
 		if (errorMessage.get() != null) {
@@ -292,8 +292,8 @@ public class AgentCoreCodeInterpreterClient {
 
 			future.get(this.asyncTimeoutSeconds, TimeUnit.SECONDS);
 		}
-		catch (Exception ex) {
-			logger.error("listFiles failed", ex);
+		catch (Exception e) {
+			logger.error("listFiles failed", e);
 		}
 
 		logger.debug("Listed {} files in session", filePaths.size());
@@ -352,8 +352,8 @@ public class AgentCoreCodeInterpreterClient {
 
 			future.get(this.asyncTimeoutSeconds, TimeUnit.SECONDS);
 		}
-		catch (Exception ex) {
-			logger.error("readFiles failed", ex);
+		catch (Exception e) {
+			logger.error("readFiles failed", e);
 		}
 
 		logger.debug("Read {} files from session", files.size());

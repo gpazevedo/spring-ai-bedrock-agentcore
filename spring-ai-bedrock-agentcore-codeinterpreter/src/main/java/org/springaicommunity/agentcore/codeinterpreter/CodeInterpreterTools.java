@@ -20,7 +20,8 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.model.tool.internal.ToolCallReactiveContextHolder;
+import reactor.util.context.ContextView;
 
 /**
  * Code Interpreter tool implementation for executing code in a secure sandbox.
@@ -35,6 +36,12 @@ public class CodeInterpreterTools {
 	private static final Logger logger = LoggerFactory.getLogger(CodeInterpreterTools.class);
 
 	private static final Set<String> SUPPORTED_LANGUAGES = Set.of("python", "javascript", "typescript");
+
+	/**
+	 * Reactor context key for session ID. Callers should store session ID under this key
+	 * via `.contextWrite(ctx -> ctx.put(SESSION_ID_CONTEXT_KEY, sessionId))`.
+	 */
+	public static final String SESSION_ID_CONTEXT_KEY = "sessionId";
 
 	public static final String DEFAULT_TOOL_DESCRIPTION = """
 			Execute code in a secure sandbox environment.
@@ -59,10 +66,9 @@ public class CodeInterpreterTools {
 	 * Execute code in a secure sandbox environment.
 	 * @param language programming language (python, javascript, typescript)
 	 * @param code code to execute
-	 * @param toolContext context containing session ID for multi-user support
 	 * @return execution result text
 	 */
-	public String executeCode(String language, String code, ToolContext toolContext) {
+	public String executeCode(String language, String code) {
 
 		// Input validation
 		if (language == null || language.isBlank()) {
@@ -76,13 +82,12 @@ public class CodeInterpreterTools {
 			return "Error: code parameter is required";
 		}
 
-		// Extract session ID from tool context (defaults to DEFAULT_SESSION_ID)
-		String sessionId = CodeInterpreterFileStore.DEFAULT_SESSION_ID;
-		if (toolContext != null && toolContext.getContext() != null) {
-			Object sessionIdObj = toolContext.getContext().get(CodeInterpreterFileStore.SESSION_ID_KEY);
-			if (sessionIdObj instanceof String s && !s.isBlank()) {
-				sessionId = s;
-			}
+		// Get session ID from Reactor context (available via
+		// ToolCallReactiveContextHolder)
+		ContextView ctx = ToolCallReactiveContextHolder.getContext();
+		String sessionId = ctx.getOrDefault(SESSION_ID_CONTEXT_KEY, CodeInterpreterFileStore.DEFAULT_SESSION_ID);
+		if (sessionId == null || sessionId.isBlank()) {
+			sessionId = CodeInterpreterFileStore.DEFAULT_SESSION_ID;
 		}
 
 		logger.debug("executeCode called: language={}, sessionId={}, code:\n{}", normalizedLanguage, sessionId, code);
