@@ -39,9 +39,6 @@ public class BrowserScreenshotStore {
 
 	private static final Logger logger = LoggerFactory.getLogger(BrowserScreenshotStore.class);
 
-	/** Key used in ToolContext to pass session ID to tools. */
-	public static final String SESSION_ID_KEY = "browser_session_id";
-
 	/** Default session ID for single-user environments (AgentCore). */
 	public static final String DEFAULT_SESSION_ID = "default";
 

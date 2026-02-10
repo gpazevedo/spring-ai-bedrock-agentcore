@@ -23,7 +23,6 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -47,7 +46,6 @@ import software.amazon.awssdk.services.bedrockagentcore.BedrockAgentCoreClient;
  * @author Yuriy Bezsonov
  */
 @AutoConfiguration
-@ConditionalOnClass(Playwright.class)
 @EnableConfigurationProperties(AgentCoreBrowserConfiguration.class)
 public class AgentCoreBrowserAutoConfiguration {
 

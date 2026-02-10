@@ -77,7 +77,8 @@ public record BrowserScreenshot(String mimeType, byte[] data, String url, int wi
 	 * @return data URL string (e.g., "data:image/png;base64,...")
 	 */
 	public String toDataUrl() {
-		return "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(data());
+		// Access internal field directly to avoid defensive copy overhead
+		return "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(this.data);
 	}
 
 }
