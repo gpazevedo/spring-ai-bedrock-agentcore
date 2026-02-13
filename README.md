@@ -329,6 +329,8 @@ agentcore:
   memory:
     memory-id: ${AGENTCORE_MEMORY_MEMORY_ID}
     long-term:
+      namespace:
+        auto-register: true  # Auto-register namespaces on mismatch (default: false)
       semantic:
         strategy-id: ${AGENTCORE_MEMORY_LONG_TERM_SEMANTIC_STRATEGY_ID}
       user-preference:
@@ -338,6 +340,8 @@ agentcore:
       episodic:
         strategy-id: ${AGENTCORE_MEMORY_LONG_TERM_EPISODIC_STRATEGY_ID}
 ```
+
+> **Note:** The `namespace.auto-register` option automatically updates AWS Memory namespaces when they don't match the expected pattern. This is useful during development but should be used with caution in production.
 
 **Usage with STM + LTM:**
 ```java

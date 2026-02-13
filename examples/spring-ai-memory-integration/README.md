@@ -113,3 +113,13 @@ The same pattern is configured in `SetupTeardown.java` when creating the memory 
 ```
 
 **Important**: The namespace pattern in your Spring configuration must match the namespace configured in your AgentCore Memory strategy. The library validates this at startup and will fail with a clear error if there's a mismatch.
+
+### Auto-Registration
+
+If you want the library to automatically update AWS Memory namespaces when they don't match, enable auto-registration:
+
+```properties
+agentcore.memory.long-term.namespace.auto-register=true
+```
+
+This is useful during development when namespace patterns may change. Use with caution in production.

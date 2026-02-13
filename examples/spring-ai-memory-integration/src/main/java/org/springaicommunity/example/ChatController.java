@@ -73,7 +73,8 @@ public class ChatController {
 
 	@GetMapping("/api/memories")
 	public List<AgentCoreLongTermMemoryRetriever.MemoryRecord> getMemories() {
-		return retriever.listMemories(config.summary().strategyId(), "testActor");
+		return retriever.listMemories(config.summary().strategyId(), "testActor",
+				config.summary().resolveNamespacePattern());
 	}
 
 	public record ChatRequest(String message) {}
