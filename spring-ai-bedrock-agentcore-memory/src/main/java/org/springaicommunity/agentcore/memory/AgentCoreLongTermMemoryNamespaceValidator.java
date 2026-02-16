@@ -54,8 +54,15 @@ public class AgentCoreLongTermMemoryNamespaceValidator {
 
 	private final BedrockAgentCoreControlClient controlClient;
 
-	public AgentCoreLongTermMemoryNamespaceValidator(BedrockAgentCoreControlClient controlClient) {
+	private final AgentCoreLongTermMemoryNamespaceRegistrar registrar;
+
+	private final boolean autoRegister;
+
+	public AgentCoreLongTermMemoryNamespaceValidator(BedrockAgentCoreControlClient controlClient,
+			AgentCoreLongTermMemoryNamespaceRegistrar registrar, boolean autoRegister) {
 		this.controlClient = controlClient;
+		this.registrar = registrar;
+		this.autoRegister = autoRegister;
 	}
 
 	/**
@@ -108,8 +115,13 @@ public class AgentCoreLongTermMemoryNamespaceValidator {
 		String actualNamespace = namespaces.get(0);
 
 		if (!matchesPattern(actualNamespace, namespacePattern)) {
-			throw new AgentCoreMemoryException.ConfigurationException(
-					buildErrorMessage(strategyId, actualNamespace, namespacePattern));
+			if (this.autoRegister) {
+				this.registrar.registerNamespace(memoryId, strategyId, namespacePattern);
+			}
+			else {
+				throw new AgentCoreMemoryException.ConfigurationException(
+						buildErrorMessage(strategyId, actualNamespace, namespacePattern));
+			}
 		}
 
 		logger.debug("Strategy '{}' namespace validated: {}", strategyId, actualNamespace);
@@ -125,8 +137,6 @@ public class AgentCoreLongTermMemoryNamespaceValidator {
 
 		for (int i = 0; i < expectedParts.length; i++) {
 			String expectedPart = expectedParts[i];
-			// If expected is a placeholder {xxx}, any value is valid
-			// If expected is literal, must match exactly
 			if (!isPlaceholder(expectedPart) && !expectedPart.equals(actualParts[i])) {
 				return false;
 			}

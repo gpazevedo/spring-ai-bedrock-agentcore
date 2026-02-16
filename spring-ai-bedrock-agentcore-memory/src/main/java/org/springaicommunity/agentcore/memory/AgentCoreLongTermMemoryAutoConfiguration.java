@@ -136,8 +136,10 @@ public class AgentCoreLongTermMemoryAutoConfiguration {
 		Map<String, String> strategyConfigs = buildStrategyConfigs(longTermMemoryProperties);
 		if (!strategyConfigs.isEmpty()) {
 			try (BedrockAgentCoreControlClient controlClient = controlClientFactory.get()) {
-				AgentCoreLongTermMemoryNamespaceValidator validator = new AgentCoreLongTermMemoryNamespaceValidator(
+				AgentCoreLongTermMemoryNamespaceRegistrar registrar = new AgentCoreLongTermMemoryNamespaceRegistrar(
 						controlClient);
+				AgentCoreLongTermMemoryNamespaceValidator validator = new AgentCoreLongTermMemoryNamespaceValidator(
+						controlClient, registrar, longTermMemoryProperties.namespace().autoRegister());
 				validator.validateNamespaces(memoryId, strategyConfigs);
 			}
 		}

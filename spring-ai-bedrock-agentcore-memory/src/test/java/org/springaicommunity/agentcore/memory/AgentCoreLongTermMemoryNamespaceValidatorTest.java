@@ -1,24 +1,24 @@
 package org.springaicommunity.agentcore.memory;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-
-import java.util.List;
-import java.util.Map;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import software.amazon.awssdk.services.bedrockagentcorecontrol.BedrockAgentCoreControlClient;
 import software.amazon.awssdk.services.bedrockagentcorecontrol.model.GetMemoryRequest;
 import software.amazon.awssdk.services.bedrockagentcorecontrol.model.GetMemoryResponse;
 import software.amazon.awssdk.services.bedrockagentcorecontrol.model.Memory;
 import software.amazon.awssdk.services.bedrockagentcorecontrol.model.MemoryStrategy;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link AgentCoreLongTermMemoryNamespaceValidator}.
@@ -32,11 +32,14 @@ class AgentCoreLongTermMemoryNamespaceValidatorTest {
 	@Mock
 	private BedrockAgentCoreControlClient controlClient;
 
+	@Mock
+	private AgentCoreLongTermMemoryNamespaceRegistrar registrar;
+
 	private AgentCoreLongTermMemoryNamespaceValidator validator;
 
 	@BeforeEach
 	void setUp() {
-		validator = new AgentCoreLongTermMemoryNamespaceValidator(controlClient);
+		validator = new AgentCoreLongTermMemoryNamespaceValidator(controlClient, registrar, false);
 	}
 
 	@Test
@@ -235,6 +238,84 @@ class AgentCoreLongTermMemoryNamespaceValidatorTest {
 		Memory memory = Memory.builder().strategies(strategies).build();
 		GetMemoryResponse response = GetMemoryResponse.builder().memory(memory).build();
 		when(controlClient.getMemory(any(GetMemoryRequest.class))).thenReturn(response);
+	}
+
+	@Nested
+	@DisplayName("Auto-Registration Mode Tests")
+	class AutoRegistrationTests {
+
+		@Mock
+		private AgentCoreLongTermMemoryNamespaceRegistrar registrar;
+
+		private AgentCoreLongTermMemoryNamespaceValidator validatorWithAutoRegister;
+
+		private AgentCoreLongTermMemoryNamespaceValidator validatorWithoutAutoRegister;
+
+		@BeforeEach
+		void setUp() {
+			registrar = mock(AgentCoreLongTermMemoryNamespaceRegistrar.class);
+			validatorWithAutoRegister = new AgentCoreLongTermMemoryNamespaceValidator(controlClient, registrar, true);
+			validatorWithoutAutoRegister = new AgentCoreLongTermMemoryNamespaceValidator(controlClient, registrar,
+					false);
+		}
+
+		@Test
+		@DisplayName("Should call registrar on namespace mismatch when autoRegister is true")
+		void shouldCallRegistrarOnMismatch() {
+			// Given
+			MemoryStrategy strategy = MemoryStrategy.builder()
+				.strategyId("semantic-123")
+				.namespaces(List.of("/wrong/namespace/{actorId}"))
+				.build();
+			mockGetMemoryResponse(List.of(strategy));
+
+			String expectedPattern = AgentCoreLongTermMemoryNamespace.ACTOR.getPattern();
+
+			// When
+			validatorWithAutoRegister.validateNamespaces("test-memory", Map.of("semantic-123", expectedPattern));
+
+			// Then
+			verify(registrar).registerNamespace("test-memory", "semantic-123", expectedPattern);
+		}
+
+		@Test
+		@DisplayName("Should not call registrar when namespace matches")
+		void shouldNotCallRegistrarWhenMatches() {
+			// Given
+			MemoryStrategy strategy = MemoryStrategy.builder()
+				.strategyId("semantic-123")
+				.namespaces(List.of(AgentCoreLongTermMemoryNamespace.ACTOR.getPattern()))
+				.build();
+			mockGetMemoryResponse(List.of(strategy));
+
+			// When
+			validatorWithAutoRegister.validateNamespaces("test-memory",
+					Map.of("semantic-123", AgentCoreLongTermMemoryNamespace.ACTOR.getPattern()));
+
+			// Then
+			verify(registrar, never()).registerNamespace(any(), any(), any());
+		}
+
+		@Test
+		@DisplayName("Should throw exception when autoRegister is false and mismatch occurs")
+		void shouldThrowWhenAutoRegisterDisabledAndMismatch() {
+			// Given
+			MemoryStrategy strategy = MemoryStrategy.builder()
+				.strategyId("semantic-123")
+				.namespaces(List.of("/wrong/namespace/{actorId}"))
+				.build();
+			mockGetMemoryResponse(List.of(strategy));
+
+			// When/Then
+			assertThatThrownBy(() -> validatorWithoutAutoRegister.validateNamespaces("test-memory",
+					Map.of("semantic-123", AgentCoreLongTermMemoryNamespace.ACTOR.getPattern())))
+				.isInstanceOf(AgentCoreMemoryException.ConfigurationException.class)
+				.hasMessageContaining("Namespace mismatch");
+
+			// Verify registrar was never called
+			verify(registrar, never()).registerNamespace(any(), any(), any());
+		}
+
 	}
 
 }

@@ -23,6 +23,8 @@ public class AgentCoreLongTermMemoryProperties {
 
 	public static final String CONFIG_PREFIX = "agentcore.memory.long-term";
 
+	private final Namespace namespace;
+
 	private final Episodic episodic;
 
 	private final Semantic semantic;
@@ -31,12 +33,17 @@ public class AgentCoreLongTermMemoryProperties {
 
 	private final UserPreference userPreference;
 
-	public AgentCoreLongTermMemoryProperties(Episodic episodic, Semantic semantic, Summary summary,
+	public AgentCoreLongTermMemoryProperties(Namespace namespace, Episodic episodic, Semantic semantic, Summary summary,
 			UserPreference userPreference) {
+		this.namespace = namespace != null ? namespace : new Namespace(false);
 		this.episodic = episodic;
 		this.semantic = semantic;
 		this.summary = summary;
 		this.userPreference = userPreference;
+	}
+
+	public Namespace namespace() {
+		return namespace;
 	}
 
 	public Episodic episodic() {
@@ -129,6 +136,9 @@ public class AgentCoreLongTermMemoryProperties {
 					: namespace.getPattern();
 		}
 
+	}
+
+	public record Namespace(boolean autoRegister) {
 	}
 
 }
