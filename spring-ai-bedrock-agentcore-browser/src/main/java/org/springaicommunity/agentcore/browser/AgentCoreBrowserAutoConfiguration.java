@@ -19,9 +19,13 @@ package org.springaicommunity.agentcore.browser;
 import com.microsoft.playwright.Playwright;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.agentcore.artifacts.ArtifactStore;
+import org.springaicommunity.agentcore.artifacts.CaffeineArtifactStore;
+import org.springaicommunity.agentcore.artifacts.GeneratedFile;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -108,18 +112,21 @@ public class AgentCoreBrowserAutoConfiguration {
 	// ========== Shared beans ==========
 
 	@Bean
-	@ConditionalOnMissingBean
-	BrowserScreenshotStore browserScreenshotStore(AgentCoreBrowserConfiguration config) {
-		logger.debug("Creating BrowserScreenshotStore bean: ttl={}s", config.screenshotTtlSeconds());
-		return new BrowserScreenshotStore(config.screenshotTtlSeconds());
+	@ConditionalOnMissingBean(name = "browserArtifactStore")
+	ArtifactStore<GeneratedFile> browserArtifactStore(AgentCoreBrowserConfiguration config) {
+		logger.debug("Creating browserArtifactStore bean: ttl={}s, maxSize={}", config.screenshotTtlSeconds(),
+				config.artifactStoreMaxSize());
+		return new CaffeineArtifactStore<>(config.screenshotTtlSeconds(), config.artifactStoreMaxSize(),
+				"BrowserArtifactStore");
 	}
 
 	@Bean
 	@ConditionalOnMissingBean
-	BrowserTools browserTools(BrowserClient client, BrowserScreenshotStore screenshotStore,
+	BrowserTools browserTools(BrowserClient client,
+			@Qualifier("browserArtifactStore") ArtifactStore<GeneratedFile> browserArtifactStore,
 			AgentCoreBrowserConfiguration config) {
 		logger.debug("Creating BrowserTools bean");
-		return new BrowserTools(client, screenshotStore, config);
+		return new BrowserTools(client, browserArtifactStore, config);
 	}
 
 	@Bean

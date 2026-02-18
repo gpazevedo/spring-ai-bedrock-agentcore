@@ -18,9 +18,13 @@ package org.springaicommunity.agentcore.codeinterpreter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.agentcore.artifacts.ArtifactStore;
+import org.springaicommunity.agentcore.artifacts.CaffeineArtifactStore;
+import org.springaicommunity.agentcore.artifacts.GeneratedFile;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -62,18 +66,20 @@ public class AgentCoreCodeInterpreterAutoConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnMissingBean
-	CodeInterpreterFileStore codeInterpreterFileStore(AgentCoreCodeInterpreterConfiguration config) {
-		logger.debug("Creating CodeInterpreterFileStore bean");
-		return new CodeInterpreterFileStore(config.fileStoreTtlSeconds());
+	@ConditionalOnMissingBean(name = "codeInterpreterArtifactStore")
+	ArtifactStore<GeneratedFile> codeInterpreterArtifactStore(AgentCoreCodeInterpreterConfiguration config) {
+		logger.debug("Creating codeInterpreterArtifactStore bean: ttl={}s, maxSize={}", config.fileStoreTtlSeconds(),
+				config.artifactStoreMaxSize());
+		return new CaffeineArtifactStore<>(config.fileStoreTtlSeconds(), config.artifactStoreMaxSize(),
+				"CodeInterpreterArtifactStore");
 	}
 
 	@Bean
 	@ConditionalOnMissingBean
 	CodeInterpreterTools codeInterpreterTools(AgentCoreCodeInterpreterClient client,
-			CodeInterpreterFileStore fileStore) {
+			@Qualifier("codeInterpreterArtifactStore") ArtifactStore<GeneratedFile> codeInterpreterArtifactStore) {
 		logger.debug("Creating CodeInterpreterTools bean");
-		return new CodeInterpreterTools(client, fileStore);
+		return new CodeInterpreterTools(client, codeInterpreterArtifactStore);
 	}
 
 	@Bean

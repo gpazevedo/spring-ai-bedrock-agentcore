@@ -20,6 +20,9 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springaicommunity.agentcore.artifacts.ArtifactStore;
+import org.springaicommunity.agentcore.artifacts.GeneratedFile;
+import org.springaicommunity.agentcore.artifacts.SessionConstants;
 import org.springframework.ai.model.tool.internal.ToolCallReactiveContextHolder;
 import reactor.util.context.ContextView;
 
@@ -37,12 +40,6 @@ public class CodeInterpreterTools {
 
 	private static final Set<String> SUPPORTED_LANGUAGES = Set.of("python", "javascript", "typescript");
 
-	/**
-	 * Reactor context key for session ID. Callers should store session ID under this key
-	 * via `.contextWrite(ctx -> ctx.put(SESSION_ID_CONTEXT_KEY, sessionId))`.
-	 */
-	public static final String SESSION_ID_CONTEXT_KEY = "sessionId";
-
 	public static final String DEFAULT_TOOL_DESCRIPTION = """
 			Execute code in a secure sandbox environment.
 			Supported languages: python, javascript, typescript.
@@ -54,11 +51,11 @@ public class CodeInterpreterTools {
 
 	private final AgentCoreCodeInterpreterClient client;
 
-	private final CodeInterpreterFileStore fileStore;
+	private final ArtifactStore<GeneratedFile> artifactStore;
 
-	public CodeInterpreterTools(AgentCoreCodeInterpreterClient client, CodeInterpreterFileStore fileStore) {
+	public CodeInterpreterTools(AgentCoreCodeInterpreterClient client, ArtifactStore<GeneratedFile> artifactStore) {
 		this.client = client;
-		this.fileStore = fileStore;
+		this.artifactStore = artifactStore;
 		logger.debug("CodeInterpreterTools initialized");
 	}
 
@@ -85,10 +82,7 @@ public class CodeInterpreterTools {
 		// Get session ID from Reactor context (available via
 		// ToolCallReactiveContextHolder)
 		ContextView ctx = ToolCallReactiveContextHolder.getContext();
-		String sessionId = ctx.getOrDefault(SESSION_ID_CONTEXT_KEY, CodeInterpreterFileStore.DEFAULT_SESSION_ID);
-		if (sessionId == null || sessionId.isBlank()) {
-			sessionId = CodeInterpreterFileStore.DEFAULT_SESSION_ID;
-		}
+		String sessionId = ctx.getOrDefault(SessionConstants.SESSION_ID_KEY, SessionConstants.DEFAULT_SESSION_ID);
 
 		logger.debug("executeCode called: language={}, sessionId={}, code:\n{}", normalizedLanguage, sessionId, code);
 
@@ -99,7 +93,7 @@ public class CodeInterpreterTools {
 
 		// Store files for ChatService to append later (keyed by session ID)
 		if (result.hasFiles()) {
-			this.fileStore.store(sessionId, result.files());
+			this.artifactStore.storeAll(sessionId, result.files());
 			logger.debug("Stored {} files for session {}", result.files().size(), sessionId);
 		}
 
