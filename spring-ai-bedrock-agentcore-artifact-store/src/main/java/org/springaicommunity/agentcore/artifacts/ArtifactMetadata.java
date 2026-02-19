@@ -31,6 +31,9 @@ public final class ArtifactMetadata {
 	/** Metadata key for creation timestamp. */
 	public static final String META_TIMESTAMP = "timestamp";
 
+	/** Metadata key for tool call ID (to group artifacts by invocation). */
+	public static final String META_TOOL_CALL_ID = "toolCallId";
+
 	private ArtifactMetadata() {
 	}
 

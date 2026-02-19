@@ -36,6 +36,11 @@ public class BrowserTools {
 
 	private static final Logger logger = LoggerFactory.getLogger(BrowserTools.class);
 
+	/**
+	 * Category used when storing artifacts. Use this when retrieving from shared store.
+	 */
+	public static final String CATEGORY = "browser";
+
 	public static final String BROWSE_URL_DESCRIPTION = """
 			Browse a web page and extract its text content.
 			Returns the page title and body text.
@@ -66,12 +71,34 @@ public class BrowserTools {
 
 	private final AgentCoreBrowserConfiguration config;
 
+	private final String category;
+
+	/**
+	 * Create BrowserTools with default category (artifacts stored without category).
+	 * @param client the browser client
+	 * @param artifactStore the artifact store
+	 * @param config the browser configuration
+	 */
 	public BrowserTools(BrowserClient client, ArtifactStore<GeneratedFile> artifactStore,
 			AgentCoreBrowserConfiguration config) {
+		this(client, artifactStore, config, null);
+	}
+
+	/**
+	 * Create BrowserTools with explicit category for artifact storage.
+	 * @param client the browser client
+	 * @param artifactStore the artifact store
+	 * @param config the browser configuration
+	 * @param category the category for storing artifacts (null for default category)
+	 */
+	public BrowserTools(BrowserClient client, ArtifactStore<GeneratedFile> artifactStore,
+			AgentCoreBrowserConfiguration config, String category) {
 		this.client = client;
 		this.artifactStore = artifactStore;
 		this.config = config;
-		logger.debug("BrowserTools initialized");
+		this.category = category;
+		logger.debug("BrowserTools initialized with category: {}",
+				category != null ? category : ArtifactStore.DEFAULT_CATEGORY);
 	}
 
 	/**
@@ -109,7 +136,12 @@ public class BrowserTools {
 			// Store screenshot as GeneratedFile with metadata
 			GeneratedFile screenshot = BrowserArtifacts.screenshot(screenshotBytes, url, config.viewportWidth(),
 					config.viewportHeight());
-			artifactStore.store(sessionId, screenshot);
+			if (category != null) {
+				artifactStore.store(sessionId, category, screenshot);
+			}
+			else {
+				artifactStore.store(sessionId, screenshot);
+			}
 
 			logger.debug("Screenshot stored for session {}: {} bytes", sessionId, screenshotBytes.length);
 

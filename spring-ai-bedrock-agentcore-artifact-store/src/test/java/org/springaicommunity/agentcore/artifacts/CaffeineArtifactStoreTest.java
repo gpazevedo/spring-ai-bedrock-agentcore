@@ -252,4 +252,95 @@ class CaffeineArtifactStoreTest {
 		assertThat(store.count("session-1")).isEqualTo(5);
 	}
 
+	// ========== Category-aware tests ==========
+
+	@Test
+	@DisplayName("Should isolate artifacts by category within same session")
+	void shouldIsolateArtifactsByCategoryWithinSameSession() {
+		store.store("session-1", "browser", "screenshot-1");
+		store.store("session-1", "codeinterpreter", "chart-1");
+		store.store("session-1", "browser", "screenshot-2");
+
+		List<String> browserArtifacts = store.retrieve("session-1", "browser");
+		List<String> codeArtifacts = store.retrieve("session-1", "codeinterpreter");
+
+		assertThat(browserArtifacts).containsExactly("screenshot-1", "screenshot-2");
+		assertThat(codeArtifacts).containsExactly("chart-1");
+	}
+
+	@Test
+	@DisplayName("Should storeAll with category")
+	void shouldStoreAllWithCategory() {
+		store.storeAll("session-1", "browser", List.of("s1", "s2", "s3"));
+
+		List<String> result = store.retrieve("session-1", "browser");
+
+		assertThat(result).containsExactly("s1", "s2", "s3");
+		assertThat(store.retrieve("session-1")).isNull(); // default category empty
+	}
+
+	@Test
+	@DisplayName("Should hasArtifacts check specific category")
+	void shouldHasArtifactsCheckSpecificCategory() {
+		store.store("session-1", "browser", "artifact-1");
+
+		assertThat(store.hasArtifacts("session-1", "browser")).isTrue();
+		assertThat(store.hasArtifacts("session-1", "codeinterpreter")).isFalse();
+		assertThat(store.hasArtifacts("session-1")).isFalse(); // default category
+	}
+
+	@Test
+	@DisplayName("Should count artifacts for specific category")
+	void shouldCountArtifactsForSpecificCategory() {
+		store.store("session-1", "browser", "s1");
+		store.store("session-1", "browser", "s2");
+		store.store("session-1", "codeinterpreter", "c1");
+
+		assertThat(store.count("session-1", "browser")).isEqualTo(2);
+		assertThat(store.count("session-1", "codeinterpreter")).isEqualTo(1);
+		assertThat(store.count("session-1")).isZero(); // default category
+	}
+
+	@Test
+	@DisplayName("Should peek artifacts for specific category")
+	void shouldPeekArtifactsForSpecificCategory() {
+		store.store("session-1", "browser", "s1");
+		store.store("session-1", "browser", "s2");
+
+		List<String> peeked = store.peek("session-1", "browser");
+
+		assertThat(peeked).containsExactly("s1", "s2");
+		assertThat(store.hasArtifacts("session-1", "browser")).isTrue();
+	}
+
+	@Test
+	@DisplayName("Should clear artifacts for specific category only")
+	void shouldClearArtifactsForSpecificCategoryOnly() {
+		store.store("session-1", "browser", "s1");
+		store.store("session-1", "codeinterpreter", "c1");
+
+		store.clear("session-1", "browser");
+
+		assertThat(store.hasArtifacts("session-1", "browser")).isFalse();
+		assertThat(store.hasArtifacts("session-1", "codeinterpreter")).isTrue();
+	}
+
+	@Test
+	@DisplayName("Should use default category when category is null")
+	void shouldUseDefaultCategoryWhenCategoryIsNull() {
+		store.store("session-1", null, "artifact-1");
+
+		assertThat(store.hasArtifacts("session-1")).isTrue();
+		assertThat(store.retrieve("session-1")).containsExactly("artifact-1");
+	}
+
+	@Test
+	@DisplayName("Should use default category when category is blank")
+	void shouldUseDefaultCategoryWhenCategoryIsBlank() {
+		store.store("session-1", "   ", "artifact-1");
+
+		assertThat(store.hasArtifacts("session-1")).isTrue();
+		assertThat(store.retrieve("session-1")).containsExactly("artifact-1");
+	}
+
 }

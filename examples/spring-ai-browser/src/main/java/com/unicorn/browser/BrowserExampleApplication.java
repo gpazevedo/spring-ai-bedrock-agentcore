@@ -26,6 +26,7 @@ import org.springaicommunity.agentcore.artifacts.ArtifactStore;
 import org.springaicommunity.agentcore.artifacts.GeneratedFile;
 import org.springaicommunity.agentcore.artifacts.SessionConstants;
 import org.springaicommunity.agentcore.browser.BrowserArtifacts;
+import org.springaicommunity.agentcore.browser.BrowserTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,6 +36,13 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
+/**
+ * Example demonstrating browser tools with artifact storage.
+ * <p>
+ * Uses the auto-configured "browserArtifactStore" bean. The artifact store now supports
+ * category-based isolation, allowing multiple tools to share a single store while keeping
+ * artifacts separate. This example uses the default category.
+ */
 @SpringBootApplication
 public class BrowserExampleApplication {
 
@@ -71,9 +79,9 @@ public class BrowserExampleApplication {
 
 			logger.info("Response: {}", response);
 
-			// Retrieve screenshots from artifact store
+			// Retrieve screenshots from artifact store (using default category)
 			List<GeneratedFile> screenshots = artifactStore.retrieve(sessionId);
-			if (screenshots.isEmpty()) {
+			if (screenshots == null || screenshots.isEmpty()) {
 				logger.warn("No screenshots captured");
 				return;
 			}

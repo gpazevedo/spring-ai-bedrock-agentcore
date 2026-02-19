@@ -38,6 +38,11 @@ public class CodeInterpreterTools {
 
 	private static final Logger logger = LoggerFactory.getLogger(CodeInterpreterTools.class);
 
+	/**
+	 * Category used when storing artifacts. Use this when retrieving from shared store.
+	 */
+	public static final String CATEGORY = "codeinterpreter";
+
 	private static final Set<String> SUPPORTED_LANGUAGES = Set.of("python", "javascript", "typescript");
 
 	public static final String DEFAULT_TOOL_DESCRIPTION = """
@@ -53,10 +58,31 @@ public class CodeInterpreterTools {
 
 	private final ArtifactStore<GeneratedFile> artifactStore;
 
+	private final String category;
+
+	/**
+	 * Create CodeInterpreterTools with default category (artifacts stored without
+	 * category).
+	 * @param client the code interpreter client
+	 * @param artifactStore the artifact store
+	 */
 	public CodeInterpreterTools(AgentCoreCodeInterpreterClient client, ArtifactStore<GeneratedFile> artifactStore) {
+		this(client, artifactStore, null);
+	}
+
+	/**
+	 * Create CodeInterpreterTools with explicit category for artifact storage.
+	 * @param client the code interpreter client
+	 * @param artifactStore the artifact store
+	 * @param category the category for storing artifacts (null for default category)
+	 */
+	public CodeInterpreterTools(AgentCoreCodeInterpreterClient client, ArtifactStore<GeneratedFile> artifactStore,
+			String category) {
 		this.client = client;
 		this.artifactStore = artifactStore;
-		logger.debug("CodeInterpreterTools initialized");
+		this.category = category;
+		logger.debug("CodeInterpreterTools initialized with category: {}",
+				category != null ? category : ArtifactStore.DEFAULT_CATEGORY);
 	}
 
 	/**
@@ -91,10 +117,16 @@ public class CodeInterpreterTools {
 		logger.debug("Result: {} chars text, {} files, isError={}", result.textOutput().length(), result.files().size(),
 				result.isError());
 
-		// Store files for ChatService to append later (keyed by session ID)
+		// Store files for ChatService to append later (keyed by session ID and category)
 		if (result.hasFiles()) {
-			this.artifactStore.storeAll(sessionId, result.files());
-			logger.debug("Stored {} files for session {}", result.files().size(), sessionId);
+			if (this.category != null) {
+				this.artifactStore.storeAll(sessionId, this.category, result.files());
+			}
+			else {
+				this.artifactStore.storeAll(sessionId, result.files());
+			}
+			logger.debug("Stored {} files for session {} in category {}", result.files().size(), sessionId,
+					this.category != null ? this.category : ArtifactStore.DEFAULT_CATEGORY);
 		}
 
 		return formatTextForLlm(result);

@@ -33,8 +33,10 @@ spring-ai-bedrock-agentcore/
 
 | Class | Purpose |
 |-------|---------|
-| `ArtifactStore<T>` | Interface for session-scoped artifact storage |
+| `ArtifactStore<T>` | Interface for session-scoped artifact storage with optional category support |
+| `ArtifactStoreFactory<T>` | Factory interface for creating artifact stores |
 | `CaffeineArtifactStore<T>` | Caffeine-backed implementation with TTL |
+| `CaffeineArtifactStoreFactory<T>` | Factory for creating CaffeineArtifactStore instances |
 | `GeneratedFile` | Immutable artifact record (mimeType, data, name, metadata) |
 | `ArtifactMetadata` | Utility for metadata extraction |
 | `SessionConstants` | Session ID constants |

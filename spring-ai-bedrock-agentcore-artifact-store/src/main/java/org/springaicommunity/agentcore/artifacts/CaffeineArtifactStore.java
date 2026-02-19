@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
  * Caffeine-backed implementation of {@link ArtifactStore}.
  * <p>
  * Uses Caffeine cache with TTL to automatically evict orphaned entries from failed or
- * disconnected sessions.
+ * disconnected sessions. Keys are composite: "sessionId:category".
  *
  * @param <T> the type of artifact to store
  * @author Yuriy Bezsonov
@@ -86,11 +86,11 @@ public class CaffeineArtifactStore<T> implements ArtifactStore<T> {
 	}
 
 	@Override
-	public void store(String sessionId, T artifact) {
+	public void store(String sessionId, String category, T artifact) {
 		if (artifact == null) {
 			return;
 		}
-		String key = normalizeSessionId(sessionId);
+		String key = buildKey(sessionId, category);
 		int[] totalSize = { 0 };
 		this.cache.asMap().compute(key, (k, existing) -> {
 			if (existing == null) {
@@ -100,15 +100,15 @@ public class CaffeineArtifactStore<T> implements ArtifactStore<T> {
 			totalSize[0] = existing.size();
 			return existing;
 		});
-		logger.debug("{}: stored 1 artifact for session {}, total now: {}", this.storeName, key, totalSize[0]);
+		logger.debug("{}: stored 1 artifact for key {}, total now: {}", this.storeName, key, totalSize[0]);
 	}
 
 	@Override
-	public void storeAll(String sessionId, List<T> artifacts) {
+	public void storeAll(String sessionId, String category, List<T> artifacts) {
 		if (artifacts == null || artifacts.isEmpty()) {
 			return;
 		}
-		String key = normalizeSessionId(sessionId);
+		String key = buildKey(sessionId, category);
 		int[] totalSize = { 0 };
 		this.cache.asMap().compute(key, (k, existing) -> {
 			if (existing == null) {
@@ -118,53 +118,55 @@ public class CaffeineArtifactStore<T> implements ArtifactStore<T> {
 			totalSize[0] = existing.size();
 			return existing;
 		});
-		logger.debug("{}: stored {} artifacts for session {}, total now: {}", this.storeName, artifacts.size(), key,
+		logger.debug("{}: stored {} artifacts for key {}, total now: {}", this.storeName, artifacts.size(), key,
 				totalSize[0]);
 	}
 
 	@Override
-	public List<T> retrieve(String sessionId) {
-		String key = normalizeSessionId(sessionId);
+	public List<T> retrieve(String sessionId, String category) {
+		String key = buildKey(sessionId, category);
 		List<T> result = this.cache.asMap().remove(key);
-		logger.debug("{}: retrieved {} artifacts for session {}", this.storeName, result != null ? result.size() : 0,
-				key);
+		logger.debug("{}: retrieved {} artifacts for key {}", this.storeName, result != null ? result.size() : 0, key);
 		return result;
 	}
 
 	@Override
-	public boolean hasArtifacts(String sessionId) {
-		String key = normalizeSessionId(sessionId);
+	public boolean hasArtifacts(String sessionId, String category) {
+		String key = buildKey(sessionId, category);
 		List<T> stored = this.cache.getIfPresent(key);
 		return stored != null && !stored.isEmpty();
 	}
 
 	@Override
-	public int count(String sessionId) {
-		String key = normalizeSessionId(sessionId);
+	public int count(String sessionId, String category) {
+		String key = buildKey(sessionId, category);
 		List<T> stored = this.cache.getIfPresent(key);
 		return stored != null ? stored.size() : 0;
 	}
 
 	@Override
-	public List<T> peek(String sessionId) {
-		String key = normalizeSessionId(sessionId);
+	public List<T> peek(String sessionId, String category) {
+		String key = buildKey(sessionId, category);
 		List<T> stored = this.cache.getIfPresent(key);
 		if (stored == null) {
 			return null;
 		}
-		logger.debug("{}: peeked {} artifacts for session {}", this.storeName, stored.size(), key);
+		logger.debug("{}: peeked {} artifacts for key {}", this.storeName, stored.size(), key);
 		return List.copyOf(stored);
 	}
 
 	@Override
-	public void clear(String sessionId) {
-		String key = normalizeSessionId(sessionId);
+	public void clear(String sessionId, String category) {
+		String key = buildKey(sessionId, category);
 		this.cache.asMap().remove(key);
-		logger.debug("{}: cleared artifacts for session {}", this.storeName, key);
+		logger.debug("{}: cleared artifacts for key {}", this.storeName, key);
 	}
 
-	private String normalizeSessionId(String sessionId) {
-		return (sessionId != null && !sessionId.isBlank()) ? sessionId : SessionConstants.DEFAULT_SESSION_ID;
+	private String buildKey(String sessionId, String category) {
+		String normalizedSession = (sessionId != null && !sessionId.isBlank()) ? sessionId
+				: SessionConstants.DEFAULT_SESSION_ID;
+		String normalizedCategory = (category != null && !category.isBlank()) ? category : DEFAULT_CATEGORY;
+		return normalizedSession + ":" + normalizedCategory;
 	}
 
 }
